@@ -32,6 +32,9 @@ connection.onmessage = function(messageRaw){
         if(message.subtype == "userID"){
             document.getElementById("userID").innerHTML = "User ID: " + message.data;
         }
+        if(message.subtype == "userCount"){
+            document.getElementById("userCount").innerHTML = "Active users: " + message.data;
+        }
     }
     if(message.type == "message"){
         var newParagraph = document.createElement("p");
