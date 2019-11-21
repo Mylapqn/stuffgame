@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>WebSocket test</title>
+    <style>
+    * {
+        font-family:verdana; font-size:15px; padding:0px;margin:0px;background-color:#19191E; color: white;
+    }
+    body{
+        overflow-x: hidden;
+    }
+    p {
+        margin:10px;
+        margin-left:50px;
+        line-height:18px;
+        /*border-top: 1px #404040 solid;
+        border-bottom: 1px #404040 solid;*/
+        padding: 20px;
+        color:#b5b5c0;
+        background:#29292E;
+        display:inline-block;
+        border-radius: 30px;
+        max-width:90%;
+        overflow-wrap: break-word;
+    }
+    #content {
+        padding:5px;
+        /*position: absolute;*/
+  bottom: 0;
+  
+  left: 0;
+  width:99%
+    }
+    #input {
+        height:40px;
+        border-radius:30px;
+        border:3px solid #403F4C;
+        padding-left:20px;
+        width:calc(100% - 450px);
+    }
+    #input:focus{
+        outline:0;
+    }
+    ::placeholder{
+        opacity: 0.3;
+    }
+    #status {
+        width:88px;display:block;float:left;margin-top:15px;
+    }
+    #userID{
+        font-family:monospace;
+        font-size:20px;
+        padding: 20px;
+        width:100%;
+        background: #000000;
+    }
+    #sendMessage{
+        width:200px;
+        height:45px;
+        margin-left:10px;
+        background: none;
+        color: #403F4C;
+        border: 3px solid #403F4C;
+        border-radius: 30px;
+        transition: border-color .2s, color .2s;
+    }
+    #sendMessage:hover{
+        color: #FFC857;
+        border-color: #FFC857;
+    }
+    #sendMessage:focus{
+        outline:0;
+    }
+    #content-wrapper{
+        overflow-y: scroll; 
+        /*position: relative;*/
+        height: 85vh;
+        width:100%; margin-left:auto; margin-right:auto;
+        border-bottom: 3px solid #404040;
+        display: flex;
+        flex-direction: column;
+        /*justify-content: flex-end;*/
+    }
+    #content-wrapper > :first-child{
+        margin-top: auto !important;
+    }
+    .systemInfo{
+        color:#b5b5c0;
+        background:#29292E;
+        color:white;
+        background:black;
+    }
+  </style>
+  </head>
+  <body>
+      <div id="userID">UserID</div>
+      <div id="content-wrapper">
+    <div id="content"></div></div>
+    <div style="padding-top:15px;">
+      <span id="status" style = "margin-left:55px; margin-right: 30px;">Connecting...</span>
+      <input type="text" id="input" disabled="none" placeholder="Type your message">
+      <button id="sendMessage" onclick="sendMessage()">Send message</button>
+    </div>
+    <script src="client.js">
+    </script>
+  </body>
+</html>

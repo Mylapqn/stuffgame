@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="stylesheet" href="style.css">
+        <meta charset="UTF-8">
+        <title>title</title>
+    </head>
+    <body>
+        <div style = "text-align:center;"><div class="area gameArea">
+            <div class="area counterArea">
+            Stuff: <span id="counter">stuffAmount</span>
+            </div>
+            <div class="area counterArea">
+            +<span id="upgradeCounter">upgradeAmount</span>/s
+            </div>
+            <br>
+            <div class="area buttonArea">
+                <button class="gameButton" type="button" onclick="gather()">Get <span id="gatherUpgradeCounter"></span>stuff</button>
+            </div>
+            <br>
+            <div class="area buttonArea">
+                <button class="gameButton" type="button" onclick="buy(this, 'Collector')">Buy upgrade (1 stuff)</button>
+                <button class="gameButton" type="button" onclick="buy(this, 'Gather')">Get more stuff (10 stuff)</button>
+            </div>
+        </div></div>
+        <a href="client.html">Comms test</a>
+        <script src="script.js"></script>
+    </body>
+</html>

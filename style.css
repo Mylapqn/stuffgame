@@ -1,0 +1,45 @@
+body{
+    background:rgb(51, 51, 51);
+    font-family:Verdana, sans-serif;
+    color:white;
+}
+.gameText{
+    color:white;
+}
+.gameButton{
+    font-family:inherit;
+    color: white;
+    background: rgb(32, 32, 32);
+    border: 1px rgb(160, 121, 70) solid;
+    padding:15px;
+    border-radius: 0px;
+    transition: color .1s, background-color .1s, border-color .3s, transform 500s ease-in;
+}
+.gameButton:hover{
+    border-color: rgb(204, 159, 100);
+    transform: translateX(10000px);
+}
+.gameButton:active{
+    background: rgb(22, 22, 22);
+}
+button:focus {outline:0;}
+.area{
+    border: 1px rgb(160, 121, 70) dashed;
+    padding: 5px;
+    display:inline-block;
+}
+.counterArea{
+    border-style: solid;
+    font-size: 15px;
+    padding: 15px;
+    margin:5px;
+    margin-bottom: 10px;
+    transition: color .1s, background-color .1s, border-color .2s;
+
+}
+.buttonArea{
+    margin:5px;
+}
+.gameArea{
+    text-align:left;
+}
