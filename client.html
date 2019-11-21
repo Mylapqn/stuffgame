@@ -60,13 +60,20 @@
         background: #403F4C;
         border-radius: 30px;
     }
-    #userID{
+    #techInfo{
         font-family:monospace;
         font-size:20px;
         line-height:60px;
         padding: 0 20px 0 20px;
         width:calc(100% - 40px);
         background: #000000;
+    }
+    #techInfo span{
+        font-family:inherit;
+        font-size:inherit;
+        line-height:inherit;
+        background: inherit;
+        color: #FFC857;
     }
     #sendMessage{
         width:10%;
@@ -133,7 +140,7 @@
   </style>
   </head>
   <body>
-      <div id="userID">UserID <span id="userCount">UserCount</span></div>
+      <div id="techInfo">User ID: <span id="userID">UserID</span> Active Users: <span id="userCount">UserCount</span></div>
       <div id="content-wrapper">
     <div id="content"></div></div>
     <div style="padding:15px 0 15px 0;">

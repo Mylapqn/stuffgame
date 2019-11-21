@@ -30,10 +30,10 @@ connection.onmessage = function(messageRaw){
 
     if(message.type == "technical"){
         if(message.subtype == "userID"){
-            document.getElementById("userID").innerHTML = "User ID: " + message.data;
+            document.getElementById("userID").innerHTML = message.data;
         }
         if(message.subtype == "userCount"){
-            document.getElementById("userCount").innerHTML = "Active users: " + message.data;
+            document.getElementById("userCount").innerHTML = message.data;
         }
     }
     if(message.type == "message"){
