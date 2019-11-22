@@ -1,19 +1,19 @@
-var player1 = {
-    velocity : {x:0,y:0},
-    pos : {x:0,y:1},
-    player:document.getElementsByClassName("player")[0],
-    speed : 5
+function Player(id, object){
+    this.ID = id;
+    this.velocity = {x:0,y:0};
+    this.pos = {x:0,y:0};
+    this.playerObject = object;
+    this.speed = 5;
     };
-var player2 = {
-    velocity : {x:0,y:0},
-    pos : {x:0,y:1},
-    player:document.getElementsByClassName("player")[1],
-    speed : 5
-    };
+
+var players = [];
 
 var userID;
 
+var fps = 60;
+
 var connected = false;
+var running = false;
 
 var connection = new WebSocket('wss://all-we-ever-want-is-indecision.herokuapp.com');
 
@@ -66,42 +66,89 @@ function keyUp(event){
 }
 
 function update(){
-    player1.pos.x+=player1.velocity.x*player1.speed;
-    player1.pos.y-=player1.velocity.y*player1.speed;
-    player1.player.style.left=player1.pos.x + "px";
-    player1.player.style.top=player1.pos.y + "px";
-    player2.player.style.left=player2.pos.x + "px";
-    player2.player.style.top=player2.pos.y + "px";
-    console.log("Player left" + player1.player.style.left + "Velocity X " + player1.velocity.x);
-    if(connected) connection.send(JSON.stringify(player1.pos));
+    if(running){
+    for(var i = 0; i < players.length; i++){
+        players[i].pos.x+=players[i].velocity.x*players[i].speed;
+        players[i].pos.y-=players[i].velocity.y*players[i].speed;
+        players[i].playerObject.style.left=players[i].pos.x + "px";
+        players[i].playerObject.style.top=players[i].pos.y + "px";
+    }
+    if(connected){
+        connection.send(JSON.stringify(players[0].pos));
+        console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
+    }
+}
 }
 connection.onmessage = function(messageRaw){
-    console.log("message:" + messageRaw.data);
+    //console.log("message:" + messageRaw.data);
     var message = JSON.parse(messageRaw.data);
     if(message.type == "technical"){
+        if(message.subtype == "init"){
+            if(!running){
+                addPlayer(message.data);
+                running=true;
+            }
+            if(message.data > 0){
+                for(i = message.data - 1; i >= 0;i--){
+                    console.log("Adding previously present player: " + i + ", Current UserID: " + message.data);
+                    addPlayer(i);
+                }
+            }
+        }
+        if(message.subtype == "newUser"){
+            if(message.data != userID){
+                console.log("New player: " + message.data + ", UserID: " + userID);
+                addPlayer(message.data);
+            }
+        }
         if(message.subtype == "userID"){
             userID = message.data;
+            players[0].ID = userID;
+            document.getElementById("userID").innerHTML = userID;
         }
     }
     if(message.type=="message"){
         if(message.userID != userID){
             console.log("eirfhewoitruh:   " + message.userID + userID)
-        console.log("pos: " + JSON.parse(message.data).x);
-        player2.pos = JSON.parse(message.data);
+            console.log("pos: " + JSON.parse(message.data).x);
+            console.log("Player list length: " + players.length + ", UserID: " + message.userID + "Player list index: " + playerIndexFromID(message.userID));
+        
+            //TODO: unresolved: playerID and list index are not always same
+            players[playerIndexFromID(message.userID)].pos = JSON.parse(message.data);
+
         }
     }
 
 }
+function playerIndexFromID(playerID){
+    for(var i = 0; i < players.length; i++){
+        console.log("Player index from id: scanning index " + i + " for ID " + playerID + ". Found ID: " + players[i].ID);
+        if(players[i].ID == playerID){
+            return i;
+        }
+    }
+    return null;
+}
+
+function addPlayer(ID){
+    console.log("adding player with ID " + ID);
+    var npo = document.createElement("div");
+    npo.classList.add("player");
+    //npo.style.background = "black";
+    npo.style.background = "rgb(" + (Math.random() * 200) + "," + (Math.random() * 200) + "," + (Math.random() * 200) + ")";
+    document.getElementById("gameArea").appendChild(npo);
+    players.push(new Player(ID, npo));
+}
 function input(axis, input){
     if(axis == "x"){
-        player1.velocity.x=input;
-        console.log("velocity X: " + player1.velocity.x);
+        players[0].velocity.x=input;
+        console.log("velocity X: " + players[0].velocity.x);
 
     }
     if(axis == "y"){
-        player1.velocity.y=input;
-        console.log("velocity Y: " + player1.velocity.y);
+        players[0].velocity.y=input;
+        console.log("velocity Y: " + players[0].velocity.y);
     }
 }
 
-setInterval(update,100);
+setInterval(update,1000/fps);
