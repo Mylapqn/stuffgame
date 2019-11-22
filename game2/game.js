@@ -32,6 +32,7 @@ function wheel(event){
 connection.onopen = function(){
     console.log("oper");
     connected = true;
+    sendPos();
 }
 
 function keyDown(event){
@@ -83,9 +84,8 @@ function update(){
         players[i].playerObject.style.top=players[i].pos.y + "px";
     }
     if(connected){
-        if(players[0].velocity.x > 0 || players[0].velocity.y > 0){
-            connection.send(JSON.stringify(players[0].pos));
-            console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
+        if(players[0].velocity.x != 0 || players[0].velocity.y != 0){
+            sendPos();
         }
     }
 }
@@ -137,6 +137,12 @@ connection.onmessage = function(messageRaw){
     }
 
 }
+
+function sendPos(){
+    connection.send(JSON.stringify(players[0].pos));
+    console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
+}
+
 function playerIndexFromID(playerID){
     for(var i = 0; i < players.length; i++){
         console.log("Player index from id: scanning index " + i + " for ID " + playerID + ". Found ID: " + players[i].ID);
