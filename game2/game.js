@@ -32,7 +32,7 @@ function wheel(event){
 connection.onopen = function(){
     console.log("oper");
     connected = true;
-    sendPos();
+
 }
 
 function keyDown(event){
@@ -97,6 +97,7 @@ connection.onmessage = function(messageRaw){
         if(message.subtype == "init"){
             if(!running){
                 addPlayer(message.data);
+                sendPos();
                 running=true;
             }
             if(message.data > 0){
@@ -110,6 +111,7 @@ connection.onmessage = function(messageRaw){
             if(message.data != userID){
                 console.log("New player: " + message.data + ", UserID: " + userID);
                 addPlayer(message.data);
+                sendPos();
             }
         }
         if(message.subtype == "leaveUser"){
