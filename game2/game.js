@@ -6,6 +6,7 @@ function Player(id, object){
     this.speed = 0.3;
     };
 
+
 var players = [];
 
 var userID;
