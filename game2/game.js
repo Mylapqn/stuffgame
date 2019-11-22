@@ -3,7 +3,7 @@ function Player(id, object){
     this.velocity = {x:0,y:0};
     this.pos = {x:0,y:0};
     this.playerObject = object;
-    this.speed = 5;
+    this.speed = 0.3;
     };
 
 var players = [];
@@ -18,7 +18,16 @@ var running = false;
 var connection = new WebSocket('wss://all-we-ever-want-is-indecision.herokuapp.com');
 
 document.addEventListener("keydown",keyDown, false);	
-document.addEventListener("keyup",keyUp, false);	
+document.addEventListener("keyup",keyUp, false);
+document.addEventListener("wheel",wheel, false);	
+
+function wheel(event){
+    if(event.deltaY < 0) players[0].speed +=0.1;
+    if(event.deltaY > 0){
+        if(players[0].speed > 0.1) players[0].speed -=0.1;
+    }
+    players[0].playerObject.style.borderWidth = players[0].speed / 0.3 * 10 + "px";
+}
 
 connection.onopen = function(){
     console.log("oper");
@@ -68,8 +77,8 @@ function keyUp(event){
 function update(){
     if(running){
     for(var i = 0; i < players.length; i++){
-        players[i].pos.x+=players[i].velocity.x*players[i].speed;
-        players[i].pos.y-=players[i].velocity.y*players[i].speed;
+        players[i].pos.x+=players[i].velocity.x*players[i].speed*1000/fps;
+        players[i].pos.y-=players[i].velocity.y*players[i].speed*1000/fps;
         players[i].playerObject.style.left=players[i].pos.x + "px";
         players[i].playerObject.style.top=players[i].pos.y + "px";
     }
@@ -135,7 +144,10 @@ function addPlayer(ID){
     var npo = document.createElement("div");
     npo.classList.add("player");
     //npo.style.background = "black";
-    npo.style.background = "rgb(" + (Math.random() * 200) + "," + (Math.random() * 200) + "," + (Math.random() * 200) + ")";
+    var color = {r:(Math.random() * 255),g:(Math.random() * 255),b:(Math.random() * 255)};
+    npo.style.backgroundColor = "rgb(" + color.r + "," + color.g + "," + color.b + ")";
+    npo.style.color = "rgb(" + (255 - color.r) + "," + (255 - color.g) + "," + (255 - color.b) + ")";
+    npo.innerHTML = ID;
     document.getElementById("gameArea").appendChild(npo);
     players.push(new Player(ID, npo));
 }
