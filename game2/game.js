@@ -83,8 +83,10 @@ function update(){
         players[i].playerObject.style.top=players[i].pos.y + "px";
     }
     if(connected){
-        connection.send(JSON.stringify(players[0].pos));
-        console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
+        if(players[0].velocity.x > 0 || players[0].velocity.y > 0){
+            connection.send(JSON.stringify(players[0].pos));
+            console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
+        }
     }
 }
 }
@@ -108,6 +110,12 @@ connection.onmessage = function(messageRaw){
             if(message.data != userID){
                 console.log("New player: " + message.data + ", UserID: " + userID);
                 addPlayer(message.data);
+            }
+        }
+        if(message.subtype == "leaveUser"){
+            if(message.data != userID){
+                console.log("Leave player: " + message.data + ", UserID: " + userID);
+                removePlayer(message.data);
             }
         }
         if(message.subtype == "userID"){
@@ -150,6 +158,12 @@ function addPlayer(ID){
     npo.innerHTML = ID;
     document.getElementById("gameArea").appendChild(npo);
     players.push(new Player(ID, npo));
+}
+function removePlayer(ID){
+    var index = playerIndexFromID(ID);
+    console.log("removing player with ID " + ID);
+    document.getElementById("gameArea").removeChild(players[index].playerObject);
+    players.splice(index, 1);
 }
 function input(axis, input){
     if(axis == "x"){
