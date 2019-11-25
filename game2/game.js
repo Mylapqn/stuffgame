@@ -7,6 +7,12 @@ function Player(id, object){
     };
 
 
+var canvas = document.getElementById("gameCanvas");
+var ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
 var players = [];
 
 var userID;
@@ -83,6 +89,9 @@ function update(){
         players[i].pos.y-=players[i].velocity.y*players[i].speed*1000/fps;
         players[i].playerObject.style.left=players[i].pos.x + "px";
         players[i].playerObject.style.top=players[i].pos.y + "px";
+
+        ctx.fillStyle = players[i].playerObject.style.backgroundColor;
+        ctx.fillRect(players[i].pos.x + 32, players[i].pos.y + 32, 6, 6);
     }
     if(connected){
         if(players[0].velocity.x != 0 || players[0].velocity.y != 0){
