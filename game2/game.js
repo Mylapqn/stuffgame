@@ -161,6 +161,7 @@ connection.onmessage = function (messageRaw) {
 			userID = message.data;
 			players[0].ID = userID;
 			document.getElementById("userID").innerHTML = userID;
+			players[0].playerObject.innerHTML = userID;
 		}
 	}
 	if (message.type == "message") {
