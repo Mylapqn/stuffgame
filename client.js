@@ -10,7 +10,7 @@ document.getElementById("input").addEventListener("keyup", function(event){
 function sendMessage(){
     var m = document.getElementById("input").value;
     if(m != ""){
-        connection.send(m);
+        connection.send(JSON.stringify({type:"text",data:m}));
     }
     document.getElementById("input").value = null;
 }

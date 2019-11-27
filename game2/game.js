@@ -154,12 +154,10 @@ connection.onmessage = function (messageRaw) {
 	}
 	if (message.type == "message") {
 		if (message.userID != userID) {
-			console.log("eirfhewoitruh:   " + message.userID + userID)
-			console.log("pos: " + JSON.parse(message.data).x);
-			console.log("Player list length: " + players.length + ", UserID: " + message.userID + "Player list index: " + playerIndexFromID(message.userID));
-
-			//TODO: unresolved: playerID and list index are not always same
-			players[playerIndexFromID(message.userID)].pos = JSON.parse(message.data);
+			var messageContent = JSON.parse(message.data);
+			if(messageContent.type == "coordinates"){
+				players[playerIndexFromID(message.userID)].pos = JSON.parse(messageContent.data);
+			}
 
 		}
 	}
@@ -167,8 +165,8 @@ connection.onmessage = function (messageRaw) {
 }
 
 function sendPos() {
-	connection.send(JSON.stringify(players[0].pos));
-	console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
+	connection.send(JSON.stringify({type:"coordinates", data:JSON.stringify(players[0].pos)}));
+	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
 }
 
 function playerIndexFromID(playerID) {
