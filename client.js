@@ -1,4 +1,6 @@
 var connection = new WebSocket('wss://all-we-ever-want-is-indecision.herokuapp.com');
+var userID;
+
 connection.onopen = function () {
     console.log("connection open");
 };
@@ -31,17 +33,27 @@ connection.onmessage = function(messageRaw){
     if(message.type == "technical"){
         if(message.subtype == "userID"){
             document.getElementById("userID").innerHTML = message.data;
+            userID = message.data;
         }
         if(message.subtype == "userCount"){
             document.getElementById("userCount").innerHTML = message.data;
         }
     }
     if(message.type == "message"){
-        var newParagraph = document.createElement("p");
-        newParagraph.innerHTML = message.data;
-        document.getElementById("content").appendChild(newParagraph);
-        document.getElementById("content").appendChild(document.createElement("br"));
-        document.getElementById("content-wrapper").scrollTop += 100;
+        var messageData = JSON.parse(message.data);
+        if(messageData.type == "text"){
+            var newParagraph = document.createElement("p");
+            if(userID == message.userID){
+                newParagraph.innerHTML = "You: " + messageData.data;
+                newParagraph.classList.add("ownMessage");
+            }
+            else {
+                newParagraph.innerHTML = "User " + message.userID + ": " + messageData.data;
+            }
+            document.getElementById("content").appendChild(newParagraph);
+            document.getElementById("content").appendChild(document.createElement("br"));
+            document.getElementById("content-wrapper").scrollTop += 100;
+        }
     }
     if(message.type == "info"){
         var newParagraph = document.createElement("p");
