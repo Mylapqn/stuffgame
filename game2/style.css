@@ -78,6 +78,28 @@ body {
     width:90%;
     padding:0 1em 0 1em;
 }
+
+#joystick{
+    position:absolute;
+    width:50px;
+    height:50px;
+    top:-100px;
+    left:-100px;
+    border-radius: 100%;
+    background:rgba(0,0,0,.1);
+    z-index:1;
+}
+#joystickKnob{
+    position:absolute;
+    width:40px;
+    height:40px;
+    top:0px;
+    left:0px;
+    border-radius: 100%;
+    background:rgba(0, 0, 0, .1);
+    z-index:1;
+}
+
 @keyframes loading{
     0%{
         transform:rotateZ(0);

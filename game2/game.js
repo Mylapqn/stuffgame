@@ -13,6 +13,9 @@ function Player(id, object) {
 var canvas = document.getElementById("gameCanvas");
 var ctx = canvas.getContext("2d");
 
+var joystick = document.getElementById("joystick");
+var joystickKnob = document.getElementById("joystickKnob");
+
 
 
 canvas.width = window.innerWidth;
@@ -32,6 +35,14 @@ var connection = new WebSocket('wss://all-we-ever-want-is-indecision.herokuapp.c
 document.addEventListener("keydown", keyDown, false);
 document.addEventListener("keyup", keyUp, false);
 document.addEventListener("wheel", wheel, false);
+
+function addJoystickListeners(){
+	document.addEventListener("mousedown", mouseDown);
+	document.addEventListener("mousemove", mouseMove);
+	document.addEventListener("mouseup", mouseUp);
+}
+
+var touchStartPos;
 
 function wheel(event) {
 	if (event.deltaY < 0) players[0].speed += 0.1;
@@ -76,6 +87,62 @@ function keyUp(event) {
 	else if (key == "A") {
 		input("x", 0);
 	}
+}
+
+function mouseDown(event){
+	/*if(event.touches){
+		touchStartPos = {
+			x = event.touches[0].screenX,
+			y = event.touches[0].screenY
+		}
+	}
+	else {
+		touchStartPos = {
+			x = event.screenX,
+			y = event.screenY
+		}
+	}*/
+	touchStartPos = {
+		x : event.clientX,
+		y : event.clientY
+	};
+	joystick.style.display="block";
+	joystick.style.width=50 + "px";
+	joystick.style.height=50 + "px";
+	joystick.style.top=touchStartPos.y - 25 + "px";
+	joystick.style.left=touchStartPos.x - 25 + "px";
+	joystickKnob.style.top=25 - 20 + "px";
+	joystickKnob.style.left=25 - 20 + "px";
+
+}
+function mouseMove(event){
+	if(touchStartPos != null){
+		event.preventDefault();
+
+		var xMove = event.clientX - touchStartPos.x;
+		var yMove = event.clientY - touchStartPos.y;
+		var moveDistance = Math.hypot(xMove,yMove);
+		var angle = Math.atan2(xMove, yMove);
+		var xNormalized = Math.sin(angle);
+		var yNormalized = Math.cos(angle);
+		joystick.style.width=moveDistance*2 + "px";
+		joystick.style.height=moveDistance*2 + "px";
+		joystick.style.top=touchStartPos.y - moveDistance + "px";
+		joystick.style.left=touchStartPos.x - moveDistance + "px";
+		joystickKnob.style.top=yMove + moveDistance - 20 + "px";
+		joystickKnob.style.left=xMove + moveDistance - 20 + "px";
+
+		players[0].velocity.x = xNormalized;
+		players[0].velocity.y = -yNormalized;
+		players[0].speed = moveDistance/100;
+
+	}
+}
+function mouseUp(event){
+	joystick.style.display="none";
+	players[0].velocity.x = 0;
+	players[0].velocity.y = 0;
+	touchStartPos = null;
 }
 
 function update() {
@@ -195,6 +262,8 @@ function gameStart(){
 	setTimeout(function(){
 		loadingScreen.style.display = "none";
 	}, 1000);
+
+	addJoystickListeners();
 }
 
 function sendPos() {
