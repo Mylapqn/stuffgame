@@ -37,6 +37,9 @@ document.addEventListener("keyup", keyUp, false);
 document.addEventListener("wheel", wheel, false);
 
 function addJoystickListeners(){
+	document.addEventListener("touchstart", mouseDown);
+	document.addEventListener("touchmove", mouseMove);
+	document.addEventListener("touchend", mouseUp);
 	document.addEventListener("mousedown", mouseDown);
 	document.addEventListener("mousemove", mouseMove);
 	document.addEventListener("mouseup", mouseUp);
