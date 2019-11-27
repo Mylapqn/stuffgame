@@ -1,22 +1,22 @@
 function Player(id, object) {
 	this.ID = id;
 	this.velocity = { x: 0, y: 0 };
-	this.pos = { x: 0, y: 0 };
-	this.oldPos = { x: 0, y: 0 };
+	this.pos = { x: 50, y: 50 };
+	this.oldPos = { x: 50, y: 50 };
 	this.playerObject = object;
 	this.oldSpeed = 0.3;
 	this.speed = 0.3;
 	this.initialised = false;
 };
 
-
+var gameArea = document.getElementById("gameArea");
 var canvas = document.getElementById("gameCanvas");
 var ctx = canvas.getContext("2d");
 
 var joystick = document.getElementById("joystick");
 var joystickKnob = document.getElementById("joystickKnob");
 
-
+var themeCheckbox = document.getElementById("themeSwitch").children[0];
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
@@ -37,10 +37,10 @@ document.addEventListener("keyup", keyUp, false);
 document.addEventListener("wheel", wheel, false);
 
 function addJoystickListeners(){
-	document.addEventListener("touchstart", mouseDown);
+	gameArea.addEventListener("touchstart", mouseDown);
 	document.addEventListener("touchmove", mouseMove);
 	document.addEventListener("touchend", mouseUp);
-	document.addEventListener("mousedown", mouseDown);
+	gameArea.addEventListener("mousedown", mouseDown);
 	document.addEventListener("mousemove", mouseMove);
 	document.addEventListener("mouseup", mouseUp);
 }
@@ -271,6 +271,21 @@ connection.onmessage = function (messageRaw) {
 		}
 	}
 
+}
+
+function themeChange(){
+	if(!themeCheckbox.checked){
+		console.log("rer");
+		gameArea.style.backgroundColor="white";
+		themeCheckbox.nextElementSibling.style.backgroundColor="white";
+		themeCheckbox.parentElement.style.backgroundColor="black";
+
+	}
+	else {
+		gameArea.style.backgroundColor="black";
+		themeCheckbox.nextElementSibling.style.backgroundColor="black";
+		themeCheckbox.parentElement.style.backgroundColor="white";
+	}
 }
 
 function gameStart(){
