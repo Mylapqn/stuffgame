@@ -96,8 +96,8 @@ function mouseDown(event){
 	players[0].playerObject.style.background="black";
 	if(event.touches){
 		touchStartPos = {
-			x = event.touches[0].clientX,
-			y = event.touches[0].clientY
+			x : event.touches[0].clientX,
+			y : event.touches[0].clientY
 		}
 	}
 	else {
@@ -122,8 +122,8 @@ function mouseMove(event){
 		var touchMove;
 		if(event.touches){
 			touchMove = {
-				x = event.touches[0].clientX,
-				y = event.touches[0].clientY
+				x : event.touches[0].clientX,
+				y : event.touches[0].clientY
 			}
 		}
 		else {
