@@ -2,6 +2,7 @@ body {
     padding:0;
     margin:0;
     overflow:hidden;
+    font-family:Montserrat,Verdana,sans-serif;
 }
 #gameArea{
     width:100%;
@@ -25,4 +26,71 @@ body {
 #gameCanvas{
     width:100%;
     height:100%;
+}
+#loadingScreen{
+    width:100vw;
+    height:100vh;
+    position:absolute;
+    top:0;
+    left:0;
+    z-index:1;
+    display:flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(130deg, rgba(255,208,126,1) 0%, rgba(255,135,188,1) 100%);
+    background:black;
+    color:white;
+}
+#loadingCircle{
+    text-align:center;
+    position:relative;
+    width:40vw;
+    height:40vw;
+    max-width:40vh;
+    max-height:40vh;
+    display:flex;
+    align-items: center;
+    justify-content: center;
+    font-size:calc(.5vw + .7em);
+    
+}
+#loadingCircle > div{
+    position:absolute;
+    top:0;
+    left:0;
+    border-top: .2em solid rgb(47, 156, 230);
+    border-left: .2em solid rgba(47, 156, 230,0.1);
+    border-bottom: .2em solid rgba(47, 156, 230,1);
+    border-right: .2em solid rgba(47, 156, 230,0.1);
+    width:inherit;
+    height:inherit;
+    max-width:inherit;
+    max-height:inherit;
+    border-radius:100%;
+    margin:auto;
+    color:white;
+    text-align:center;
+    /*background:rgb(240, 97, 159);*/
+    animation:loading 1s linear 0s infinite;
+}
+#loadingCircle > span {
+    letter-spacing: .5em;
+    width:90%;
+    padding:0 1em 0 1em;
+}
+@keyframes loading{
+    0%{
+        transform:rotateZ(0);
+    }
+    100%{
+        transform:rotateZ(360deg);
+    }
+}
+@keyframes startGame{
+    0%{
+        top:0;
+    }
+    100%{
+        top:-100%;
+    }
 }

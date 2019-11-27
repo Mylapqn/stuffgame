@@ -134,6 +134,7 @@ connection.onmessage = function (messageRaw) {
 			if (!running) {
 				addPlayer(message.data);
 				sendPos();
+				gameStart();
 				players[0].initialised = true;
 				running = true;
 			}
@@ -186,6 +187,14 @@ connection.onmessage = function (messageRaw) {
 		}
 	}
 
+}
+
+function gameStart(){
+	var loadingScreen = document.getElementById("loadingScreen");
+	loadingScreen.style.animation = "startGame 1s cubic-bezier(0.3, 0, 0.1, 1) 0s 1 forwards";
+	setTimeout(function(){
+		loadingScreen.style.display = "none";
+	}, 1000);
 }
 
 function sendPos() {
