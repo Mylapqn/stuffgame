@@ -93,6 +93,7 @@ function keyUp(event) {
 }
 
 function mouseDown(event){
+	players[0].playerObject.style.background="black";
 	if(event.touches){
 		touchStartPos = {
 			x = event.touches[0].clientX,
@@ -155,6 +156,8 @@ function mouseUp(event){
 	players[0].velocity.x = 0;
 	players[0].velocity.y = 0;
 	touchStartPos = null;
+
+	players[0].playerObject.style.backround="white";
 }
 
 function update() {
