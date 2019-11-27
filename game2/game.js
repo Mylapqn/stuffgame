@@ -4,7 +4,9 @@ function Player(id, object) {
 	this.pos = { x: 0, y: 0 };
 	this.oldPos = { x: 0, y: 0 };
 	this.playerObject = object;
+	this.oldSpeed = 0.3;
 	this.speed = 0.3;
+	this.initialised = false;
 };
 
 
@@ -36,7 +38,6 @@ function wheel(event) {
 	if (event.deltaY > 0) {
 		if (players[0].speed > 0.1) players[0].speed -= 0.1;
 	}
-	players[0].playerObject.style.borderWidth = players[0].speed / 0.3 * 10 + "px";
 }
 
 connection.onopen = function () {
@@ -80,33 +81,43 @@ function keyUp(event) {
 function update() {
 	if (running) {
 		for (var i = 0; i < players.length; i++) {
-			players[i].pos.x = (players[i].pos.x + players[i].velocity.x * players[i].speed * 1000 / fps);
-			players[i].pos.y = (players[i].pos.y - players[i].velocity.y * players[i].speed * 1000 / fps);
+			if(players[i].initialised){
+				if(i == 0){
+					players[i].pos.x = (players[i].pos.x + players[i].velocity.x * players[i].speed * 1000 / fps);
+					players[i].pos.y = (players[i].pos.y - players[i].velocity.y * players[i].speed * 1000 / fps);
+					if(players[i].oldSpeed != players[i].speed){
+						sendSpeed();
+						players[i].oldSpeed = players[i].speedoldSpeed;
+					}
+				}
 
-			/*ctx.beginPath();
-			ctx.lineWidth = 3;
-			ctx.moveTo(players[i].pos.x + 32, players[i].pos.y + 32);
-			ctx.lineTo(players[i].pos.x - 150, players[i].pos.y - 150);
-			ctx.stroke();*/
+				/*ctx.beginPath();
+				ctx.lineWidth = 3;
+				ctx.moveTo(players[i].pos.x + 32, players[i].pos.y + 32);
+				ctx.lineTo(players[i].pos.x - 150, players[i].pos.y - 150);
+				ctx.stroke();*/
 
-			ctx.lineWidth = 6;
-			ctx.strokeStyle = players[i].playerObject.style.backgroundColor;
-			ctx.beginPath();
-			ctx.moveTo(players[i].oldPos.x + 32, players[i].oldPos.y + 32);
-			ctx.lineTo(players[i].pos.x + 32, players[i].pos.y + 32);
-			ctx.stroke();
+				ctx.lineWidth = 6;
+				ctx.strokeStyle = players[i].playerObject.style.backgroundColor;
+				ctx.beginPath();
+				ctx.moveTo(players[i].oldPos.x, players[i].oldPos.y);
+				ctx.lineTo(players[i].pos.x, players[i].pos.y);
+				ctx.stroke();
 
-			players[i].oldPos.x = players[i].pos.x;
-			players[i].oldPos.y = players[i].pos.y;
+				players[i].oldPos.x = players[i].pos.x;
+				players[i].oldPos.y = players[i].pos.y;
 
-			players[i].playerObject.style.left = players[i].pos.x + "px";
-			players[i].playerObject.style.top = players[i].pos.y + "px";
+				players[i].playerObject.style.borderWidth = players[i].speed / 0.3 * 10 + "px";
 
-			/*ctx.beginPath();
-			ctx.lineWidth = 3;
-			ctx.moveTo(players[i].pos.x + 32, players[i].pos.y + 32);
-			ctx.lineTo(players[i].pos.x + 150, players[i].pos.y + 150);
-			ctx.stroke();*/
+				players[i].playerObject.style.left = players[i].pos.x - 25 - players[i].speed / 0.03 + "px";
+				players[i].playerObject.style.top = players[i].pos.y - 25 - players[i].speed / 0.03 + "px";
+
+				/*ctx.beginPath();
+				ctx.lineWidth = 3;
+				ctx.moveTo(players[i].pos.x + 32, players[i].pos.y + 32);
+				ctx.lineTo(players[i].pos.x + 150, players[i].pos.y + 150);
+				ctx.stroke();*/
+			}
 		}
 		if (connected) {
 			if (players[0].velocity.x != 0 || players[0].velocity.y != 0) {
@@ -123,7 +134,7 @@ connection.onmessage = function (messageRaw) {
 			if (!running) {
 				addPlayer(message.data);
 				sendPos();
-				ctx.moveTo(players[0].pos.x, players[0].pos.y);
+				players[0].initialised = true;
 				running = true;
 			}
 			if (message.data > 0) {
@@ -154,9 +165,21 @@ connection.onmessage = function (messageRaw) {
 	}
 	if (message.type == "message") {
 		if (message.userID != userID) {
+
 			var messageContent = JSON.parse(message.data);
+			playerIndex = playerIndexFromID(message.userID);
+
 			if(messageContent.type == "coordinates"){
-				players[playerIndexFromID(message.userID)].pos = JSON.parse(messageContent.data);
+				playerIndex = playerIndexFromID(message.userID);
+				players[playerIndex].pos = JSON.parse(messageContent.data);
+				if(!players[playerIndex].initialised){
+					players[playerIndex].oldPos.x = players[playerIndex].pos.x;
+					players[playerIndex].oldPos.y = players[playerIndex].pos.y;
+					players[playerIndex].initialised = true;
+				}
+			}
+			if(messageContent.type == "speed"){
+				players[playerIndex].speed = messageContent.data;
 			}
 
 		}
@@ -166,6 +189,11 @@ connection.onmessage = function (messageRaw) {
 
 function sendPos() {
 	connection.send(JSON.stringify({type:"coordinates", data:JSON.stringify(players[0].pos)}));
+	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
+}
+
+function sendSpeed() {
+	connection.send(JSON.stringify({type:"speed", data:players[0].speed}));
 	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
 }
 
