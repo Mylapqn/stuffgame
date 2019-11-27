@@ -32,6 +32,8 @@ var running = false;
 
 var connection = new WebSocket('wss://all-we-ever-want-is-indecision.herokuapp.com');
 
+var touchStartPos;
+
 document.addEventListener("keydown", keyDown, false);
 document.addEventListener("keyup", keyUp, false);
 document.addEventListener("wheel", wheel, false);
@@ -45,7 +47,6 @@ function addJoystickListeners(){
 	document.addEventListener("mouseup", mouseUp);
 }
 
-var touchStartPos;
 
 function wheel(event) {
 	if (event.deltaY < 0) players[0].speed += 0.1;
