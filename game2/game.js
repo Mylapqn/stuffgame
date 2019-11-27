@@ -93,7 +93,7 @@ function keyUp(event) {
 }
 
 function mouseDown(event){
-	players[0].playerObject.style.backgroundColor="black";
+	//players[0].playerObject.style.backgroundColor="black";
 	if(event.touches){
 		touchStartPos = {
 			x : event.touches[0].clientX,
@@ -138,6 +138,8 @@ function mouseMove(event){
 		var angle = Math.atan2(xMove, yMove);
 		var xNormalized = Math.sin(angle);
 		var yNormalized = Math.cos(angle);
+
+
 		joystick.style.width=moveDistance*2 + "px";
 		joystick.style.height=moveDistance*2 + "px";
 		joystick.style.top=touchStartPos.y - moveDistance + "px";
@@ -147,7 +149,7 @@ function mouseMove(event){
 
 		players[0].velocity.x = xNormalized;
 		players[0].velocity.y = -yNormalized;
-		players[0].speed = moveDistance/100;
+		players[0].speed = moveDistance/200;
 
 	}
 }
@@ -157,7 +159,7 @@ function mouseUp(event){
 	players[0].velocity.y = 0;
 	touchStartPos = null;
 
-	players[0].playerObject.style.backgroundColor="white";
+	//players[0].playerObject.style.backgroundColor="white";
 }
 
 function update() {
@@ -252,18 +254,18 @@ connection.onmessage = function (messageRaw) {
 
 			var messageContent = JSON.parse(message.data);
 			playerIndex = playerIndexFromID(message.userID);
-
-			if(messageContent.type == "coordinates"){
-				playerIndex = playerIndexFromID(message.userID);
-				players[playerIndex].pos = JSON.parse(messageContent.data);
-				if(!players[playerIndex].initialised){
-					players[playerIndex].oldPos.x = players[playerIndex].pos.x;
-					players[playerIndex].oldPos.y = players[playerIndex].pos.y;
-					players[playerIndex].initialised = true;
+			if(players.length >= playerIndex){
+				if(messageContent.type == "coordinates"){
+					players[playerIndex].pos = JSON.parse(messageContent.data);
+					if(!players[playerIndex].initialised){
+						players[playerIndex].oldPos.x = players[playerIndex].pos.x;
+						players[playerIndex].oldPos.y = players[playerIndex].pos.y;
+						players[playerIndex].initialised = true;
+					}
 				}
-			}
-			if(messageContent.type == "speed"){
-				players[playerIndex].speed = messageContent.data;
+				if(messageContent.type == "speed"){
+					players[playerIndex].speed = messageContent.data;
+				}
 			}
 
 		}
