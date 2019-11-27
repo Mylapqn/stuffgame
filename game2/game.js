@@ -2,6 +2,7 @@ function Player(id, object) {
 	this.ID = id;
 	this.velocity = { x: 0, y: 0 };
 	this.pos = { x: 0, y: 0 };
+	this.oldPos = { x: 0, y: 0 };
 	this.playerObject = object;
 	this.speed = 0.3;
 };
@@ -79,19 +80,33 @@ function keyUp(event) {
 function update() {
 	if (running) {
 		for (var i = 0; i < players.length; i++) {
-			ctx.beginPath();
+			players[i].pos.x = (players[i].pos.x + players[i].velocity.x * players[i].speed * 1000 / fps);
+			players[i].pos.y = (players[i].pos.y - players[i].velocity.y * players[i].speed * 1000 / fps);
+
+			/*ctx.beginPath();
+			ctx.lineWidth = 3;
+			ctx.moveTo(players[i].pos.x + 32, players[i].pos.y + 32);
+			ctx.lineTo(players[i].pos.x - 150, players[i].pos.y - 150);
+			ctx.stroke();*/
+
 			ctx.lineWidth = 6;
 			ctx.strokeStyle = players[i].playerObject.style.backgroundColor;
-			ctx.moveTo(players[i].pos.x + 32, players[i].pos.y + 32);
-			players[i].pos.x += players[i].velocity.x * players[i].speed * 1000 / fps;
-			players[i].pos.y -= players[i].velocity.y * players[i].speed * 1000 / fps;
+			ctx.beginPath();
+			ctx.moveTo(players[i].oldPos.x + 32, players[i].oldPos.y + 32);
+			ctx.lineTo(players[i].pos.x + 32, players[i].pos.y + 32);
+			ctx.stroke();
+
+			players[i].oldPos.x = players[i].pos.x;
+			players[i].oldPos.y = players[i].pos.y;
+
 			players[i].playerObject.style.left = players[i].pos.x + "px";
 			players[i].playerObject.style.top = players[i].pos.y + "px";
 
-			ctx.fillStyle = players[i].playerObject.style.backgroundColor;
-			//ctx.fillRect(players[i].pos.x + 32, players[i].pos.y + 32, 6, 6);
-			ctx.lineTo(players[i].pos.x + 32, players[i].pos.y + 32);
-			ctx.stroke();
+			/*ctx.beginPath();
+			ctx.lineWidth = 3;
+			ctx.moveTo(players[i].pos.x + 32, players[i].pos.y + 32);
+			ctx.lineTo(players[i].pos.x + 150, players[i].pos.y + 150);
+			ctx.stroke();*/
 		}
 		if (connected) {
 			if (players[0].velocity.x != 0 || players[0].velocity.y != 0) {
