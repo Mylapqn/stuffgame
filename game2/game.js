@@ -90,22 +90,18 @@ function keyUp(event) {
 }
 
 function mouseDown(event){
-	/*if(event.touches){
+	if(event.touches){
 		touchStartPos = {
-			x = event.touches[0].screenX,
-			y = event.touches[0].screenY
+			x = event.touches[0].clientX,
+			y = event.touches[0].clientY
 		}
 	}
 	else {
 		touchStartPos = {
-			x = event.screenX,
-			y = event.screenY
-		}
-	}*/
-	touchStartPos = {
-		x : event.clientX,
-		y : event.clientY
-	};
+			x : event.clientX,
+			y : event.clientY
+		};
+	}
 	joystick.style.display="block";
 	joystick.style.width=50 + "px";
 	joystick.style.height=50 + "px";
@@ -118,9 +114,22 @@ function mouseDown(event){
 function mouseMove(event){
 	if(touchStartPos != null){
 		event.preventDefault();
-
-		var xMove = event.clientX - touchStartPos.x;
-		var yMove = event.clientY - touchStartPos.y;
+		
+		var touchMove;
+		if(event.touches){
+			touchMove = {
+				x = event.touches[0].clientX,
+				y = event.touches[0].clientY
+			}
+		}
+		else {
+			touchMove = {
+				x : event.clientX,
+				y : event.clientY
+			};
+		}
+		var xMove = touchMove.x - touchStartPos.x;
+		var yMove = touchMove.y - touchStartPos.y;
 		var moveDistance = Math.hypot(xMove,yMove);
 		var angle = Math.atan2(xMove, yMove);
 		var xNormalized = Math.sin(angle);
