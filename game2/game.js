@@ -365,7 +365,7 @@ function sendColor() {
 
 function playerIndexFromID(playerID) {
 	for (var i = 0; i < players.length; i++) {
-		console.log("Player index from id: scanning index " + i + " for ID " + playerID + ". Found ID: " + players[i].ID);
+		//console.log("Player index from id: scanning index " + i + " for ID " + playerID + ". Found ID: " + players[i].ID);
 		if (players[i].ID == playerID) {
 			return i;
 		}
