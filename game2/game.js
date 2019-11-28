@@ -1,3 +1,4 @@
+
 function Player(id, object) {
 	this.ID = id;
 	this.velocity = { x: 0, y: 0 };
@@ -7,6 +8,8 @@ function Player(id, object) {
 	this.oldSpeed = 0.3;
 	this.speed = 0.3;
 	this.initialised = false;
+	this.color = { r: 0, g: 0, b: 0 };
+	this.drawing = true;
 };
 
 var gameArea = document.getElementById("gameArea");
@@ -27,14 +30,14 @@ var userID;
 
 var fps = 60;
 
-var pingTimeout = 0;
+var pingTimeout = 0;	
 var maxPingTimeout = 5;
 
 var connected = false;
 var running = false;
 
 var connection = new WebSocket('wss://all-we-ever-want-is-indecision.herokuapp.com');
-
+		
 setInterval(update, 1000 / fps);
 
 var touchStartPos;
@@ -43,7 +46,7 @@ document.addEventListener("keydown", keyDown, false);
 document.addEventListener("keyup", keyUp, false);
 document.addEventListener("wheel", wheel, false);
 
-function addJoystickListeners(){
+function addJoystickListeners() {
 	gameArea.addEventListener("touchstart", mouseDown);
 	document.addEventListener("touchmove", mouseMove);
 	document.addEventListener("touchend", mouseUp);
@@ -61,7 +64,7 @@ function wheel(event) {
 }
 
 connection.onopen = function () {
-	console.log("Opened connection");
+	console.log("oper");
 	connected = true;
 
 }
@@ -81,6 +84,9 @@ function keyDown(event) {
 	else if (key == "A") {
 		input("x", -1);
 	}
+	else if (key == " ") {
+		players[0].drawing = !players[0].drawing;
+	}
 }
 function keyUp(event) {
 	var key = event.key.toUpperCase();
@@ -98,69 +104,69 @@ function keyUp(event) {
 	}
 }
 
-function mouseDown(event){
+function mouseDown(event) {
 	//players[0].playerObject.style.backgroundColor="black";
-	if(event.touches){
+	if (event.touches) {
 		touchStartPos = {
-			x : event.touches[0].clientX,
-			y : event.touches[0].clientY
+			x: event.touches[0].clientX,
+			y: event.touches[0].clientY
 		}
 	}
 	else {
 		touchStartPos = {
-			x : event.clientX,
-			y : event.clientY
+			x: event.clientX,
+			y: event.clientY
 		};
 	}
-	joystick.style.display="block";
-	joystick.style.width=50 + "px";
-	joystick.style.height=50 + "px";
-	joystick.style.top=touchStartPos.y - 25 + "px";
-	joystick.style.left=touchStartPos.x - 25 + "px";
-	joystickKnob.style.top=25 - 20 + "px";
-	joystickKnob.style.left=25 - 20 + "px";
+	joystick.style.display = "block";
+	joystick.style.width = 50 + "px";
+	joystick.style.height = 50 + "px";
+	joystick.style.top = touchStartPos.y - 25 + "px";
+	joystick.style.left = touchStartPos.x - 25 + "px";
+	joystickKnob.style.top = 25 - 20 + "px";
+	joystickKnob.style.left = 25 - 20 + "px";
 
 }
-function mouseMove(event){
-	if(touchStartPos != null){
+function mouseMove(event) {
+	if (touchStartPos != null) {
 		event.preventDefault();
-		
+
 		var touchMove;
-		if(event.touches){
+		if (event.touches) {
 			touchMove = {
-				x : event.touches[0].clientX,
-				y : event.touches[0].clientY
+				x: event.touches[0].clientX,
+				y: event.touches[0].clientY
 			}
 		}
 		else {
 			touchMove = {
-				x : event.clientX,
-				y : event.clientY
+				x: event.clientX,
+				y: event.clientY
 			};
 		}
 		var xMove = touchMove.x - touchStartPos.x;
 		var yMove = touchMove.y - touchStartPos.y;
-		var moveDistance = Math.hypot(xMove,yMove);
+		var moveDistance = Math.hypot(xMove, yMove);
 		var angle = Math.atan2(xMove, yMove);
 		var xNormalized = Math.sin(angle);
 		var yNormalized = Math.cos(angle);
 
 
-		joystick.style.width=moveDistance*2 + "px";
-		joystick.style.height=moveDistance*2 + "px";
-		joystick.style.top=touchStartPos.y - moveDistance + "px";
-		joystick.style.left=touchStartPos.x - moveDistance + "px";
-		joystickKnob.style.top=yMove + moveDistance - 20 + "px";
-		joystickKnob.style.left=xMove + moveDistance - 20 + "px";
+		joystick.style.width = moveDistance * 2 + "px";
+		joystick.style.height = moveDistance * 2 + "px";
+		joystick.style.top = touchStartPos.y - moveDistance + "px";
+		joystick.style.left = touchStartPos.x - moveDistance + "px";
+		joystickKnob.style.top = yMove + moveDistance - 20 + "px";
+		joystickKnob.style.left = xMove + moveDistance - 20 + "px";
 
 		players[0].velocity.x = xNormalized;
 		players[0].velocity.y = -yNormalized;
-		players[0].speed = moveDistance/200;
+		players[0].speed = moveDistance / 200;
 
 	}
 }
-function mouseUp(event){
-	joystick.style.display="none";
+function mouseUp(event) {
+	joystick.style.display = "none";
 	players[0].velocity.x = 0;
 	players[0].velocity.y = 0;
 	touchStartPos = null;
@@ -171,13 +177,13 @@ function mouseUp(event){
 function update() {
 	if (running) {
 		for (var i = 0; i < players.length; i++) {
-			if(players[i].initialised){
-				if(i == 0){
+			if (players[i].initialised) {
+				if (i == 0) {
 					players[i].pos.x = (players[i].pos.x + players[i].velocity.x * players[i].speed * 1000 / fps);
 					players[i].pos.y = (players[i].pos.y - players[i].velocity.y * players[i].speed * 1000 / fps);
-					if(players[i].oldSpeed != players[i].speed){
+					if (players[i].oldSpeed != players[i].speed) {
 						sendSpeed();
-						players[i].oldSpeed = players[i].speedoldSpeed;
+						players[i].oldSpeed = players[i].speed;
 					}
 				}
 
@@ -187,12 +193,14 @@ function update() {
 				ctx.lineTo(players[i].pos.x - 150, players[i].pos.y - 150);
 				ctx.stroke();*/
 
-				ctx.lineWidth = 6;
-				ctx.strokeStyle = players[i].playerObject.style.backgroundColor;
-				ctx.beginPath();
-				ctx.moveTo(players[i].oldPos.x, players[i].oldPos.y);
-				ctx.lineTo(players[i].pos.x, players[i].pos.y);
-				ctx.stroke();
+				if (players[i].drawing) {
+					ctx.lineWidth = players[i].speed * 5;
+					ctx.strokeStyle = CSScolorAlpha(players[i].color, players[i].speed);
+					ctx.beginPath();
+					ctx.moveTo(players[i].oldPos.x, players[i].oldPos.y);
+					ctx.lineTo(players[i].pos.x, players[i].pos.y);
+					ctx.stroke();
+				}
 
 				players[i].oldPos.x = players[i].pos.x;
 				players[i].oldPos.y = players[i].pos.y;
@@ -224,6 +232,8 @@ connection.onmessage = function (messageRaw) {
 			if (!running) {
 				addPlayer(message.data);
 				sendPos();
+				sendColor();
+				sendSpeed();
 				gameStart();
 				setInterval(sendPing,1000);
 				players[0].initialised = true;
@@ -241,6 +251,8 @@ connection.onmessage = function (messageRaw) {
 				console.log("New player: " + message.data + ", UserID: " + userID);
 				addPlayer(message.data);
 				sendPos();
+				sendColor();
+				sendSpeed();
 			}
 		}
 		if (message.subtype == "leaveUser") {
@@ -268,17 +280,22 @@ connection.onmessage = function (messageRaw) {
 
 			var messageContent = JSON.parse(message.data);
 			playerIndex = playerIndexFromID(message.userID);
-			if(players.length >= playerIndex){
-				if(messageContent.type == "coordinates"){
+			if (players.length >= playerIndex) {
+				if (messageContent.type == "coordinates") {
 					players[playerIndex].pos = JSON.parse(messageContent.data);
-					if(!players[playerIndex].initialised){
+					if (!players[playerIndex].initialised) {
 						players[playerIndex].oldPos.x = players[playerIndex].pos.x;
 						players[playerIndex].oldPos.y = players[playerIndex].pos.y;
 						players[playerIndex].initialised = true;
 					}
 				}
-				if(messageContent.type == "speed"){
+				if (messageContent.type == "speed") {
 					players[playerIndex].speed = messageContent.data;
+				}
+				if (messageContent.type == "color") {
+					/*players[playerIndex].color = messageContent.data;
+					players[playerIndex].playerObject.style.backgroundColor = CSScolor(players[playerIndex].color);
+					players[playerIndex].playerObject.style.color = CSScolor(invertColor(players[playerIndex].color));*/
 				}
 			}
 
@@ -287,32 +304,34 @@ connection.onmessage = function (messageRaw) {
 
 }
 
-
-function themeChange(){
+function themeChange() {
 	if (!themeCheckbox.checked) {
 		console.log("rer");
 		gameArea.style.backgroundColor = "white";
 		themeCheckbox.nextElementSibling.style.backgroundColor = "white";
 		themeCheckbox.parentElement.style.backgroundColor = "black";
-		document.documentElement.style.setProperty('--c', "black");  
-		
+		document.documentElement.style.setProperty('--c', "black");
+
 	}
 	else {
 		gameArea.style.backgroundColor = "black";
 		themeCheckbox.nextElementSibling.style.backgroundColor = "black";
 		themeCheckbox.parentElement.style.backgroundColor = "white";
-		document.documentElement.style.setProperty('--c', "white");  
+		document.documentElement.style.setProperty('--c', "white");
 	}
 }
 
-function gameStart(){
+function gameStart() {
 	var loadingScreen = document.getElementById("loadingScreen");
 	loadingScreen.style.animation = "startGame 1s cubic-bezier(0.3, 0, 0.1, 1) 0s 1 forwards";
-	setTimeout(function(){
+	setTimeout(function () {
 		loadingScreen.style.display = "none";
 	}, 1000);
 	
 	addJoystickListeners();
+	if (themeCheckbox.checked) {
+		themeChange();
+	}
 }
 
 function sendPing(){
@@ -327,12 +346,17 @@ function sendPing(){
 }
 
 function sendPos() {
-	connection.send(JSON.stringify({type:"coordinates", data:JSON.stringify(players[0].pos)}));
+	connection.send(JSON.stringify({ type: "coordinates", data: JSON.stringify(players[0].pos) }));
 	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
 }
 
 function sendSpeed() {
-	connection.send(JSON.stringify({type:"speed", data:players[0].speed}));
+	connection.send(JSON.stringify({ type: "speed", data: players[0].speed }));
+	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
+}
+
+function sendColor() {
+	connection.send(JSON.stringify({ type: "color", data: JSON.stringify(players[0].color) }));
 	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
 }
 
@@ -350,14 +374,33 @@ function addPlayer(ID) {
 	console.log("adding player with ID " + ID);
 	var npo = document.createElement("div");
 	npo.classList.add("player");
+	var index = players.push(new Player(ID, npo)) - 1;
 	//npo.style.background = "black";
-	var color = { r: (Math.random() * 255), g: (Math.random() * 255), b: (Math.random() * 255) };
-	npo.style.backgroundColor = "rgb(" + color.r + "," + color.g + "," + color.b + ")";
-	npo.style.color = "rgb(" + (255 - color.r) + "," + (255 - color.g) + "," + (255 - color.b) + ")";
+	players[index].color = { r: (Math.random() * 255), g: (Math.random() * 255), b: (Math.random() * 255) };
+	npo.style.backgroundColor = CSScolor(players[index].color);
+	npo.style.color = CSScolor(invertColor(players[index].color));
 	npo.innerHTML = ID;
 	document.getElementById("gameArea").appendChild(npo);
-	players.push(new Player(ID, npo));
 }
+
+function invertColor(color) {
+	var inverted = {
+		r: 255 - color.r,
+		g: 255 - color.g,
+		b: 255 - color.b
+	}
+	return inverted;
+}
+
+function CSScolor(color) {
+	return ("rgb(" + color.r + "," + color.g + "," + color.b + ")");
+}
+
+function CSScolorAlpha(color, alpha) {
+	return ("rgba(" + color.r + "," + color.g + "," + color.b + "," + alpha + ")");
+}
+
+
 function removePlayer(ID) {
 	var index = playerIndexFromID(ID);
 	console.log("removing player with ID " + ID);
