@@ -292,9 +292,13 @@ connection.onmessage = function (messageRaw) {
 					players[playerIndex].speed = messageContent.data;
 				}
 				if (messageContent.type == "color") {
-					/*players[playerIndex].color = messageContent.data;
+					receivedColor = JSON.parse(messageContent.data);
+					/*players[playerIndex].color.r = messageContent.data.r;
+					players[playerIndex].color.g = messageContent.data.g;
+					players[playerIndex].color.b = messageContent.data.b;*/
+					players[playerIndex].color = receivedColor;
 					players[playerIndex].playerObject.style.backgroundColor = CSScolor(players[playerIndex].color);
-					players[playerIndex].playerObject.style.color = CSScolor(invertColor(players[playerIndex].color));*/
+					players[playerIndex].playerObject.style.color = CSScolor(invertColor(players[playerIndex].color));
 				}
 			}
 
@@ -355,7 +359,7 @@ function sendSpeed() {
 }
 
 function sendColor() {
-	connection.send(JSON.stringify({ type: "color", data: JSON.stringify(players[0].color) }));
+	connection.send(JSON.stringify({type: "color", data: JSON.stringify(players[0].color) }));
 	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
 }
 
