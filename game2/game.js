@@ -20,6 +20,8 @@ var joystickKnob = document.getElementById("joystickKnob");
 
 var themeCheckbox = document.getElementById("themeSwitch").children[0];
 
+var loadingScreen = document.getElementById("loadingScreen");
+
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
@@ -35,9 +37,11 @@ var maxPingTimeout = 5;
 var connected = false;
 var running = false;
 
-var connection = new WebSocket('wss://all-we-ever-want-is-indecision.herokuapp.com');
+var connection;
+connect();
 		
 setInterval(update, 1000 / fps);
+setInterval(sendPing,1000);
 
 var touchStartPos;
 
@@ -62,11 +66,29 @@ function wheel(event) {
 	}
 }
 
-connection.onopen = function () {
+function connect(){
+	connection = new WebSocket('wss://all-we-ever-want-is-indecision.herokuapp.com');
+	connection.onopen = onConnectionOpen;
+	connection.onmessage = onConnectionMessage;
+	connection.onclose = function(){
+		connected = false;
+		running = false;
+		loadingScreen.style.display = "flex";
+		loadingScreen.style.animation = "startGame 1s cubic-bezier(0.9, 0, 0.7, 1) 0s 1 reverse both";
+		loadingScreen.style.animationPlayState = "running";
+		setTimeout(function () {
+			loadingScreen.style.animationPlayState = "paused";
+			removeAllPlayers();
+		}, 1000);
+	}
+}
+
+function onConnectionOpen(){
+	pingTimeout = 0;
 	console.log("oper");
 	connected = true;
-
 }
+
 
 function keyDown(event) {
 	var key = event.key.toUpperCase();
@@ -223,20 +245,20 @@ function update() {
 		}
 	}
 }
-connection.onmessage = function (messageRaw) {
+
+function onConnectionMessage(messageRaw) {
 	//console.log("message:" + messageRaw.data);
 	var message = JSON.parse(messageRaw.data);
 	if (message.type == "technical") {
 		if (message.subtype == "init") {
 			if (!running) {
+				console.log("Init message received");
 				addPlayer(message.data);
 				sendPos();
 				sendColor();
 				sendSpeed();
 				gameStart();
-				setInterval(sendPing,1000);
-				players[0].initialised = true;
-				running = true;
+				
 			}
 			if (message.data > 0) {
 				for (i = message.data - 1; i >= 0; i--) {
@@ -325,16 +347,23 @@ function themeChange() {
 }
 
 function gameStart() {
-	var loadingScreen = document.getElementById("loadingScreen");
-	loadingScreen.style.animation = "startGame 1s cubic-bezier(0.3, 0, 0.1, 1) 0s 1 forwards";
+	console.log("Game start");
+
+	loadingScreen.style.animation = "startGame 1s cubic-bezier(0.3, 0, 0.1, 1) 0s 2 normal both";
+	loadingScreen.style.animationPlayState = "running";
 	setTimeout(function () {
+		console.log("why????");
 		loadingScreen.style.display = "none";
+		loadingScreen.style.animationPlayState = "paused";
 	}, 1000);
 	
 	addJoystickListeners();
 	if (themeCheckbox.checked) {
 		themeChange();
 	}
+
+	players[0].initialised = true;
+	running = true;
 }
 
 function sendPing(){
@@ -342,9 +371,11 @@ function sendPing(){
 	pingTimeout++;
 	console.log("pingTimeout: " + pingTimeout);
 	if(pingTimeout > maxPingTimeout){
-		loadingScreen.style.display = "flex";
-		loadingScreen.style.animation = "startGame 1s cubic-bezier(0.9, 0, 0.7, 1) 0s 1 reverse backwards";
-		running = false;
+		connection.close();
+	}
+	if(!connected && pingTimeout % 10 == 0){
+		console.log("attempting new connection");
+		connect();
 	}
 }
 
@@ -416,6 +447,13 @@ function removePlayer(ID) {
 			players.splice(index, 1);
 		}
 	}
+}
+
+function removeAllPlayers(){
+	for(var i = 0; i < players.length; i++){
+		document.getElementById("gameArea").removeChild(players[i].playerObject);
+	}
+	players.splice(0, players.length);
 }
 function input(axis, input) {
 	if (axis == "x") {
