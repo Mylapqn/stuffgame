@@ -1,4 +1,3 @@
-
 function Player(id, object) {
 	this.ID = id;
 	this.velocity = { x: 0, y: 0 };
