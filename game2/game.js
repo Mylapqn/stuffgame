@@ -280,12 +280,14 @@ function themeChange(){
 		gameArea.style.backgroundColor="white";
 		themeCheckbox.nextElementSibling.style.backgroundColor="white";
 		themeCheckbox.parentElement.style.backgroundColor="black";
+		document.documentElement.style.setProperty('--c', "black");  
 
 	}
 	else {
 		gameArea.style.backgroundColor="black";
 		themeCheckbox.nextElementSibling.style.backgroundColor="black";
 		themeCheckbox.parentElement.style.backgroundColor="white";
+		document.documentElement.style.setProperty('--c', "white");  
 	}
 }
 

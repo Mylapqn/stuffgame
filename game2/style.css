@@ -1,3 +1,6 @@
+:root{
+    --c:black;
+}
 body {
     padding:0;
     margin:0;
@@ -34,7 +37,7 @@ body {
     position:absolute;
     top:0;
     left:0;
-    z-index:1;
+    z-index:10;
     display:flex;
     align-items: center;
     justify-content: center;
@@ -102,6 +105,7 @@ body {
 }
 
 #themeSwitch{
+    z-index:1;
     position:fixed;
     right:50px;
     top:50px;
@@ -127,6 +131,16 @@ body {
     width:26px;
     background:white;
     border-radius:20px;
+}
+#themeSwitch:after{
+    position:absolute;
+    top:45px;
+    left:0px;
+    width:130px;
+    content:"Theme";
+    color:red;
+    color:var(--c);
+    transition:color 1s;
 }
 
 @keyframes loading{
