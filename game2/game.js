@@ -27,10 +27,15 @@ var userID;
 
 var fps = 60;
 
+var pingTimeout = 0;
+var maxPingTimeout = 5;
+
 var connected = false;
 var running = false;
 
 var connection = new WebSocket('wss://all-we-ever-want-is-indecision.herokuapp.com');
+
+setInterval(update, 1000 / fps);
 
 var touchStartPos;
 
@@ -56,7 +61,7 @@ function wheel(event) {
 }
 
 connection.onopen = function () {
-	console.log("oper");
+	console.log("Opened connection");
 	connected = true;
 
 }
@@ -220,6 +225,7 @@ connection.onmessage = function (messageRaw) {
 				addPlayer(message.data);
 				sendPos();
 				gameStart();
+				setInterval(sendPing,1000);
 				players[0].initialised = true;
 				running = true;
 			}
@@ -249,6 +255,13 @@ connection.onmessage = function (messageRaw) {
 			document.getElementById("userID").innerHTML = userID;
 			players[0].playerObject.innerHTML = userID;
 		}
+		if(message.subtype == "ping"){
+			pingTimeout = 0;
+			if(message.requestReply){
+				//sendPing();
+				//Temporary: Disabled due to possible looping pings
+			}
+		}
 	}
 	if (message.type == "message") {
 		if (message.userID != userID) {
@@ -274,6 +287,7 @@ connection.onmessage = function (messageRaw) {
 
 }
 
+
 function themeChange(){
 	if(!themeCheckbox.checked){
 		console.log("rer");
@@ -281,7 +295,7 @@ function themeChange(){
 		themeCheckbox.nextElementSibling.style.backgroundColor="white";
 		themeCheckbox.parentElement.style.backgroundColor="black";
 		document.documentElement.style.setProperty('--c', "black");  
-
+		
 	}
 	else {
 		gameArea.style.backgroundColor="black";
@@ -297,8 +311,19 @@ function gameStart(){
 	setTimeout(function(){
 		loadingScreen.style.display = "none";
 	}, 1000);
-
+	
 	addJoystickListeners();
+}
+
+function sendPing(){
+	connection.send(JSON.stringify({type:"technical",subtype:"ping",requestReply:true}));
+	pingTimeout++;
+	console.log("pingTimeout: " + pingTimeout);
+	if(pingTimeout > maxPingTimeout){
+		loadingScreen.style.display = "flex";
+		loadingScreen.style.animation = "startGame 1s cubic-bezier(0.9, 0, 0.7, 1) 0s 1 reverse backwards";
+		running = false;
+	}
 }
 
 function sendPos() {
@@ -336,8 +361,15 @@ function addPlayer(ID) {
 function removePlayer(ID) {
 	var index = playerIndexFromID(ID);
 	console.log("removing player with ID " + ID);
-	document.getElementById("gameArea").removeChild(players[index].playerObject);
-	players.splice(index, 1);
+	if (index != null){
+		if(index >= players.length){
+			console.log("cannot find player with ID " + ID);
+		}
+		else{
+			document.getElementById("gameArea").removeChild(players[index].playerObject);
+			players.splice(index, 1);
+		}
+	}
 }
 function input(axis, input) {
 	if (axis == "x") {
@@ -351,4 +383,3 @@ function input(axis, input) {
 	}
 }
 
-setInterval(update, 1000 / fps);
