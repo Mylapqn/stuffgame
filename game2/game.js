@@ -289,18 +289,18 @@ connection.onmessage = function (messageRaw) {
 
 
 function themeChange(){
-	if(!themeCheckbox.checked){
+	if (!themeCheckbox.checked) {
 		console.log("rer");
-		gameArea.style.backgroundColor="white";
-		themeCheckbox.nextElementSibling.style.backgroundColor="white";
-		themeCheckbox.parentElement.style.backgroundColor="black";
+		gameArea.style.backgroundColor = "white";
+		themeCheckbox.nextElementSibling.style.backgroundColor = "white";
+		themeCheckbox.parentElement.style.backgroundColor = "black";
 		document.documentElement.style.setProperty('--c', "black");  
 		
 	}
 	else {
-		gameArea.style.backgroundColor="black";
-		themeCheckbox.nextElementSibling.style.backgroundColor="black";
-		themeCheckbox.parentElement.style.backgroundColor="white";
+		gameArea.style.backgroundColor = "black";
+		themeCheckbox.nextElementSibling.style.backgroundColor = "black";
+		themeCheckbox.parentElement.style.backgroundColor = "white";
 		document.documentElement.style.setProperty('--c', "white");  
 	}
 }
