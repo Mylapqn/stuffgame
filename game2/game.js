@@ -218,8 +218,8 @@ function update() {
 				ctx.stroke();*/
 
 				if (players[i].drawing) {
-					ctx.lineWidth = players[i].speed * 5;
-					ctx.strokeStyle = CSScolorAlpha(players[i].color, players[i].speed);
+					ctx.lineWidth = (players[i].speed * 5) + 2;
+					ctx.strokeStyle = CSScolorAlpha(players[i].color, players[i].speed + 0.1);
 					ctx.beginPath();
 					ctx.moveTo(players[i].oldPos.x, players[i].oldPos.y);
 					ctx.lineTo(players[i].pos.x, players[i].pos.y);
