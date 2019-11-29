@@ -25,6 +25,8 @@ var loadingScreen = document.getElementById("loadingScreen");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
+gameArea.style.height = window.innerHeight;
+
 var players = [];
 
 var userID;
