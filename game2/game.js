@@ -370,7 +370,9 @@ function gameStart() {
 }
 
 function sendPing(){
-	connection.send(JSON.stringify({type:"technical",subtype:"ping",requestReply:true}));
+	if(connected) {
+		connection.send(JSON.stringify({type:"technical",subtype:"ping",requestReply:true}));
+	}
 	pingTimeout++;
 	console.log("pingTimeout: " + pingTimeout);
 	if(pingTimeout > maxPingTimeout){
