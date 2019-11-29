@@ -151,6 +151,15 @@ function mouseDown(event) {
 	joystickRadius=60;
 	joystickBorderWidth=10;
 	joystickKnobRadius=50;
+	if(themeCheckbox.checked){
+
+		joystick.style.borderColor = "rgb(255,255,255,.2)";
+		joystickKnob.style.backgroundColor = "rgb(255,255,255,.2)";
+	}
+	else {
+		joystick.style.borderColor = "rgb(0,0,0,.2)";
+		joystickKnob.style.backgroundColor = "rgb(0,0,0,.2)";
+	}
 	joystick.style.display = "block";
 	joystick.style.borderWidth = joystickBorderWidth + "px";
 	joystick.style.width = joystickRadius*2 + "px";
