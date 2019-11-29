@@ -17,6 +17,11 @@ var ctx = canvas.getContext("2d");
 
 var joystick = document.getElementById("joystick");
 var joystickKnob = document.getElementById("joystickKnob");
+var joystickRadius = 100;
+var joystickBorderWidth = 10;
+var joystickKnobRadius;
+
+var touching=false;
 
 var themeCheckbox = document.getElementById("themeSwitch").children[0];
 
@@ -88,14 +93,14 @@ function connect(){
 
 function onConnectionOpen(){
 	pingTimeout = 0;
-	console.log("oper");
+	console.log("Connection opened");
 	connected = true;
 }
 
 
 function keyDown(event) {
 	var key = event.key.toUpperCase();
-	console.log("key down: " + key);
+	//console.log("key down: " + key);
 	if (key == "W") {
 		input("y", 1);
 	}
@@ -129,6 +134,7 @@ function keyUp(event) {
 }
 
 function mouseDown(event) {
+	touching=true;
 	//players[0].playerObject.style.backgroundColor="black";
 	if (event.touches) {
 		touchStartPos = {
@@ -142,13 +148,23 @@ function mouseDown(event) {
 			y: event.clientY
 		};
 	}
+	joystickRadius=60;
+	joystickBorderWidth=10;
+	joystickKnobRadius=50;
 	joystick.style.display = "block";
-	joystick.style.width = 50 + "px";
-	joystick.style.height = 50 + "px";
-	joystick.style.top = touchStartPos.y - 25 + "px";
-	joystick.style.left = touchStartPos.x - 25 + "px";
-	joystickKnob.style.top = 25 - 20 + "px";
-	joystickKnob.style.left = 25 - 20 + "px";
+	joystick.style.borderWidth = joystickBorderWidth + "px";
+	joystick.style.width = joystickRadius*2 + "px";
+	joystick.style.height = joystickRadius*2 + "px";
+	joystick.style.top = touchStartPos.y - joystickRadius - joystickBorderWidth + "px";
+	joystick.style.left = touchStartPos.x - joystickRadius - joystickBorderWidth + "px";
+	joystickKnob.style.width = joystickKnobRadius*2 + "px";
+	joystickKnob.style.height = joystickKnobRadius*2 + "px";
+	joystickKnob.style.top = joystickRadius - joystickKnobRadius + "px";
+	joystickKnob.style.left = joystickRadius - joystickKnobRadius + "px";
+
+	joystick.style.opacity="1";
+	joystickKnob.style.transition="none";
+	joystick.style.transition="none";
 
 }
 function mouseMove(event) {
@@ -176,12 +192,15 @@ function mouseMove(event) {
 		var yNormalized = Math.cos(angle);
 
 
-		joystick.style.width = moveDistance * 2 + "px";
+		/*joystick.style.width = moveDistance * 2 + "px";
 		joystick.style.height = moveDistance * 2 + "px";
 		joystick.style.top = touchStartPos.y - moveDistance + "px";
 		joystick.style.left = touchStartPos.x - moveDistance + "px";
 		joystickKnob.style.top = yMove + moveDistance - 20 + "px";
-		joystickKnob.style.left = xMove + moveDistance - 20 + "px";
+		joystickKnob.style.left = xMove + moveDistance - 20 + "px";*/
+
+		joystickKnob.style.top = yMove + joystickRadius - joystickKnobRadius + "px";
+		joystickKnob.style.left = xMove + joystickRadius - joystickKnobRadius + "px";
 
 		players[0].velocity.x = xNormalized;
 		players[0].velocity.y = -yNormalized;
@@ -190,7 +209,20 @@ function mouseMove(event) {
 	}
 }
 function mouseUp(event) {
-	joystick.style.display = "none";
+	touching=false;
+	joystickKnob.style.transition="top .3s, left .3s";
+	joystick.style.transition="opacity .4s";
+	joystick.style.opacity="0";
+	joystickKnob.style.top = joystickRadius - joystickKnobRadius + "px";
+	joystickKnob.style.left = joystickRadius - joystickKnobRadius + "px";
+	setTimeout(function(){
+		if(!touching){
+			joystickKnob.style.transition="none";
+			joystick.style.transition="none";
+			joystick.style.display="none";
+		}
+	},400);
+	//joystick.style.display = "none";
 	players[0].velocity.x = 0;
 	players[0].velocity.y = 0;
 	touchStartPos = null;
@@ -323,6 +355,7 @@ function onConnectionMessage(messageRaw) {
 					players[playerIndex].color.b = messageContent.data.b;*/
 					players[playerIndex].color = receivedColor;
 					players[playerIndex].playerObject.style.backgroundColor = CSScolor(players[playerIndex].color);
+					players[playerIndex].playerObject.style.borderColor = CSScolorAlpha(players[playerIndex].color,.5);
 					players[playerIndex].playerObject.style.color = CSScolor(invertColor(players[playerIndex].color));
 				}
 			}
@@ -355,7 +388,6 @@ function gameStart() {
 	loadingScreen.style.animation = "startGame 1s cubic-bezier(0.3, 0, 0.1, 1) 0s 2 normal both";
 	loadingScreen.style.animationPlayState = "running";
 	setTimeout(function () {
-		console.log("why????");
 		loadingScreen.style.display = "none";
 		loadingScreen.style.animationPlayState = "paused";
 	}, 1000);
@@ -370,14 +402,16 @@ function gameStart() {
 }
 
 function sendPing(){
-	if(connected) {
-		connection.send(JSON.stringify({type:"technical",subtype:"ping",requestReply:true}));
-	}
 	pingTimeout++;
 	console.log("pingTimeout: " + pingTimeout);
-	if(pingTimeout > maxPingTimeout){
-		connection.close();
+
+	if(connected) {
+		connection.send(JSON.stringify({type:"technical",subtype:"ping",requestReply:true}));
+		if(pingTimeout > maxPingTimeout){
+			connection.close();
+		}
 	}
+
 	if(!connected && pingTimeout % 10 == 0){
 		console.log("attempting new connection");
 		connect();
@@ -418,6 +452,7 @@ function addPlayer(ID) {
 	players[index].color = { r: (Math.random() * 255), g: (Math.random() * 255), b: (Math.random() * 255) };
 	npo.style.backgroundColor = CSScolor(players[index].color);
 	npo.style.color = CSScolor(invertColor(players[index].color));
+	npo.style.borderColor = CSScolorAlpha(players[index].color,.5);
 	npo.innerHTML = ID;
 	document.getElementById("gameArea").appendChild(npo);
 }

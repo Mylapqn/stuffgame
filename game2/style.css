@@ -92,7 +92,8 @@ body {
     top:-100px;
     left:-100px;
     border-radius: 100%;
-    background:rgba(0,0,0,.1);
+    border:10px solid rgba(0,0,0,.2);
+    /*background:rgba(0,0,0,.1);*/
     z-index:1;
 }
 #joystickKnob{
@@ -102,7 +103,7 @@ body {
     top:0px;
     left:0px;
     border-radius: 100%;
-    background:rgba(0, 0, 0, .1);
+    background:rgba(0, 0, 0, .2);
     z-index:1;
 }
 
