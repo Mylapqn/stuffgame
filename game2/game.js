@@ -26,7 +26,7 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 gameArea.style.height = window.innerHeight + "px";
-//document.style.height = window.innerHeight + "px";
+document.body.style.height = window.innerHeight + "px";
 
 var players = [];
 
