@@ -4,10 +4,28 @@ function Player(id) {
 	this.rot = 0;
 	this.speed = 10;
 	this.rotationSpeed = .05;
-	this.color = { r: 0, g: 0, b: 0 };
+	this.color = { r: 100, g: 80, b: 200 };
 };
 
+function Projectile(shooter) {
+	this.id = 0;
+	this.shooter = shooter;
+	this.pos = { x: 50, y: 50 };
+	this.rot = 0;
+	this.speed = 30;
+	this.color = { r: 255, g: 255, b: 255 };
+	this.age = 0;
+	this.lifetime = 1;
+	this.randomSpread=.05;
+};
+
+var projectiles = [];
+
 var playerImage = document.getElementById("playerImage");
+
+var playerImage = new Image();
+playerImage.src = 'images/player.png';
+
 console.log(playerImage);
 
 var gameArea = document.getElementById("gameArea");
@@ -63,21 +81,25 @@ function keyDown(event) {
 		inputRotation = -1;
 	}
 	else if (key == " ") {
-		
+		shootProjectile();
 	}
 }
 function keyUp(event) {
 	var key = event.key.toUpperCase();
 	if (key == "W") {
+		if(inputVelocity==1)
 		inputVelocity = 0;
 	}
 	else if (key == "D") {
+		if(inputRotation==1)
 		inputRotation = 0;
 	}
 	else if (key == "S") {
+		if(inputVelocity==-1)
 		inputVelocity = 0;
 	}
 	else if (key == "A") {
+		if(inputRotation==-1)
 		inputRotation = 0;
 	}
 }
@@ -93,8 +115,27 @@ function mouseUp(event) {
 	
 }
 
+function shootProjectile(){
+	var p = new Projectile(player);
+	p.pos.x=player.pos.x;
+	p.pos.y=player.pos.y;
+	p.rot=player.rot;
+	p.rot += (Math.random()*2 - 1)*p.randomSpread;
+	p.color = player.color;
+	p.id = projectiles.push(p)-1;
+}
+
+var deltaTime = 1/fps;
+
 function update() {
 	if (running) {
+
+
+		//TODO: DELTATIME
+		deltaTime=deltaTime;
+		//TODO: DELTATIME
+
+
 		player.rot += inputRotation * player.rotationSpeed;
 		player.pos.x += Math.cos(player.rot) * inputVelocity * player.speed;
 		player.pos.y += Math.sin(player.rot) * inputVelocity * player.speed;
@@ -102,16 +143,57 @@ function update() {
 
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+		//DRAW PLAYER
 		ctx.save();
 		ctx.translate(player.pos.x, player.pos.y);
 		ctx.rotate(player.rot);
 		ctx.translate(-player.pos.x, -player.pos.y);
-		//ctx.fillRect(player.pos.x - 10, player.pos.y - 10, 20, 20);
-		ctx.drawImage(playerImage, player.pos.x - 10, player.pos.y - 10, 20, 20);
+		ctx.fillStyle =CSScolor(player.color);
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+		ctx.globalCompositeOperation="destination-in";
+		ctx.drawImage(playerImage, player.pos.x - 15, player.pos.y - 15, 30, 30);
 		ctx.restore();
+
+		for(var i = 0; i < projectiles.length; i++){
+			var p = projectiles[i];
+			//MOVE PROJECTILE
+			p.pos.x += Math.cos(p.rot) * p.speed;
+			p.pos.y += Math.sin(p.rot) * p.speed;
+			p.age += deltaTime;
+			//KILL IF TOO OLD
+			if(p.age > p.lifetime){
+				/*ctx.fillStyle="white";
+				ctx.beginPath();
+				ctx.arc(p.pos.x, p.pos.y, 50, 0, 2 * Math.PI);
+    			ctx.fill();*/
+				removeProjectile(p.id);
+				continue;
+			}
+			//DRAW PROJECTILE
+			ctx.save();
+			//ctx.fillStyle=CSScolor(p.color);
+			ctx.fillStyle="red";
+			rotateCtx(p.pos.x,p.pos.y,p.rot);
+			ctx.fillRect(p.pos.x-10,p.pos.y-2,20,4);
+			ctx.restore();
+		}
+
 	}
 }
 
+function rotateCtx(x,y,angle){
+	ctx.translate(x, y);
+	ctx.rotate(angle);
+	ctx.translate(-x, -y);
+}
+
+function removeProjectile(id){
+	for(var i = 0; i < projectiles.length; i++){
+		if(projectiles[i].id == id){
+			projectiles.splice(i,1);
+		}
+	}
+}
 
 
 
