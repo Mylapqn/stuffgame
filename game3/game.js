@@ -1,4 +1,5 @@
 function Player(id) {
+	this.ai = false;
 	this.ID = id;
 	this.pos = { x: 200, y: 200 };
 	this.rot = 0;
@@ -34,7 +35,8 @@ function Explosion(x, y){
 var projectiles = [];
 var explosions = [];
 
-var playerImage = document.getElementById("playerImage");
+var playerHeight = 40;
+var playerWidth = 40;
 
 var playerImage = new Image();
 playerImage.src = 'images/player.png';
@@ -45,7 +47,11 @@ var gameArea = document.getElementById("gameArea");
 var canvas = document.getElementById("gameCanvas");
 var ctx = canvas.getContext("2d");
 
-var player = new Player(0);
+var localPlayer = new Player(0);
+var players = [localPlayer];
+
+
+addAIPlayer();
 
 
 var loadingScreen = document.getElementById("loadingScreen");
@@ -133,6 +139,14 @@ function mouseUp(event) {
 	
 }
 
+function addAIPlayer(){
+	var p = new Player(players.length);
+	p.ai = true;
+	p.color = {r:250,g:0,b:0};
+	p.speed = 600;
+	players.push(p);
+}
+
 function createExplosion(x,y,size){
 	var e = new Explosion(x,y);
 	e.id = explosions.push(e)-1;
@@ -142,26 +156,27 @@ function createExplosion(x,y,size){
 }
 
 
-function shootProjectile(){
-	var p = new Projectile(player);
-	p.pos.x=player.pos.x;
-	p.pos.y=player.pos.y;
-	p.rot=player.rot;
+function shootProjectile(shooter){
+	var p = new Projectile(shooter);
+	p.pos.x=shooter.pos.x;
+	p.pos.y=shooter.pos.y;
+	p.rot=shooter.rot;
 
 	
 
 	p.rot += (Math.random()*2 - 1)*p.randomSpread;
-	p.color = player.color;
+	p.color = shooter.color;
 	p.id = projectiles.push(p)-1;
 	p.lifetime = randomFloat(0.9,1,1);
 }
-function shootAtTarget(target){
-	var p = new Projectile(null);
-	p.rot = 0;
-	p.pos.y = canvas.height/2;
-	p.pos.x = canvas.width / 2;
 
-	p.speed = 1000;
+function shootAtTarget(shooter, target){
+	var p = new Projectile(shooter);
+	p.rot = shooter.rot;
+	p.pos.x=shooter.pos.x;
+	p.pos.y=shooter.pos.y;
+
+	//p.speed = 1000;
 	var distanceToTarget = Math.sqrt(Math.abs(Math.pow(target.pos.y-p.pos.y,2)-Math.pow(target.pos.x-p.pos.x,2)));
 	var timeToTarget = distanceToTarget / p.speed;
 	console.log("sd" + timeToTarget);
@@ -170,17 +185,19 @@ function shootAtTarget(target){
 
 	//p.rot = Math.atan2(target.pos.y-p.pos.y,target.pos.x-p.pos.x);
 
-	p.rot = Math.atan2(predictedTargetPos.y-p.pos.y,predictedTargetPos.x-p.pos.x);
+	//p.rot = Math.atan2(predictedTargetPos.y-p.pos.y,predictedTargetPos.x-p.pos.x);
 
-	p.randomSpread = 0.02;
+	p.randomSpread = 0.5;
 
 	p.rot += (Math.random()*2 - 1)*p.randomSpread;
 	p.color = {r:255,g:0,b:0};
+	p.color = shooter.color;
 	p.lifetime = randomFloat(1.4,1.6);
 	if(p.lifetime >= timeToTarget)
 	p.id = projectiles.push(p)-1;
 }
 
+var imageData;
 
 var deltaTime = 1/fps;
 
@@ -196,25 +213,29 @@ function update() {
 		//TODO: DELTATIME
 		deltaTime=deltaTime;
 		//TODO: DELTATIME
-
+		
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
 
 		//MOVE PLAYER
-		player.rot += inputRotation * player.rotationSpeed;
+		localPlayer.rot += inputRotation * localPlayer.rotationSpeed;
 		if(inputVelocity != 0){
-			player.velocity.x = Math.cos(player.rot) * inputVelocity * player.speed * deltaTime;
-			player.velocity.y = Math.sin(player.rot) * inputVelocity * player.speed * deltaTime;
+			localPlayer.velocity.x = Math.cos(localPlayer.rot) * inputVelocity * localPlayer.speed * deltaTime;
+			localPlayer.velocity.y = Math.sin(localPlayer.rot) * inputVelocity * localPlayer.speed * deltaTime;
 		}
 		else {
-			player.velocity.x *= 1 - 1 * deltaTime;
-			player.velocity.y *= 1 - 1 * deltaTime;
+			localPlayer.velocity.x *= 1 - 1 * deltaTime;
+			localPlayer.velocity.y *= 1 - 1 * deltaTime;
 		}
-		player.pos.x += player.velocity.x;
-		player.pos.y += player.velocity.y;
 
-var playerHeight = 40;
-var playerWidth = 40;
+		for(var i = 0; i < players.length;i++){
+			var p = players[i];
 
-		player.hitbox = [{x:player.pos.x-playerWidth/2,y:player.pos.y-playerHeight/2},{x:player.pos.x+playerWidth/2,y:player.pos.y-playerHeight/2},{x:player.pos.x+playerWidth/2,y:player.pos.y+playerHeight/2},{x:player.pos.x-playerWidth/2,y:player.pos.y+playerHeight/2}]
+			p.pos.x += p.velocity.x;
+			p.pos.y += p.velocity.y;
+
+			p.hitbox = [{x:p.pos.x-playerWidth/2,y:p.pos.y-playerHeight/2},{x:p.pos.x+playerWidth/2,y:p.pos.y-playerHeight/2},{x:p.pos.x+playerWidth/2,y:p.pos.y+playerHeight/2},{x:p.pos.x-playerWidth/2,y:p.pos.y+playerHeight/2}]
+		}
+
 
 		
 
@@ -225,38 +246,46 @@ var playerWidth = 40;
 
 		if(shooting){
 			if(weaponCooldown<=0){
-				shootProjectile();
+				shootProjectile(localPlayer);
 				weaponCooldown = maxCooldown;
 			}
 		}
 		enemyCooldown -= deltaTime;
 		if(enemyCooldown <=0){
-		shootAtTarget(player);
-		enemyCooldown = .1;
+		shootAtTarget(players[1],localPlayer);
+		enemyCooldown = .05;
 		}
 			
 
+		//PLAYERS AI
+		for(var i = 0;i<players.length;i++){
+			var p = players[i];
+			if(p.ai){
+				p.rot = Math.atan2(localPlayer.pos.y-p.pos.y,localPlayer.pos.x-p.pos.x);
+				p.velocity.x = Math.cos(p.rot) * 1 * p.speed * deltaTime;
+				p.velocity.y = Math.sin(p.rot) * 1 * p.speed * deltaTime;
+			}
+		}
 
-		ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-		//DRAW PLAYER
-		{
-		ctx.save();
-		ctx.translate(player.pos.x, player.pos.y);
-		ctx.rotate(player.rot);
-		ctx.translate(-player.pos.x, -player.pos.y);
-		ctx.fillStyle =CSScolor(player.color);
-		ctx.fillRect(0, 0, canvas.width, canvas.height);
-		ctx.globalCompositeOperation="destination-in";
-		ctx.drawImage(playerImage, player.pos.x - 15, player.pos.y - 15, 30, 30);
-		ctx.restore();
+		//DRAW PLAYERS
+		for(var i = 0;i<players.length;i++){
+			var p = players[i];
+			ctx.save();
+			ctx.translate(p.pos.x, p.pos.y);
+			ctx.rotate(p.rot);
+			ctx.translate(-p.pos.x, -p.pos.y);
+			ctx.fillStyle=CSScolor(p.color);
+			//ctx.fillRect(0, 0, canvas.width, canvas.height);
+			//ctx.globalCompositeOperation="destination-in";
+			ctx.drawImage(playerImage, p.pos.x - 15, p.pos.y - 15, 30, 30);
+			ctx.restore();
 		}
 
 		ctx.strokeStyle="red";
 		ctx.beginPath();
-		ctx.moveTo(player.hitbox[0].x,player.hitbox[0].y);
-		for(var i = 0; i < player.hitbox.length;i++){
-			var p = player.hitbox[i];
+		ctx.moveTo(localPlayer.hitbox[0].x,localPlayer.hitbox[0].y);
+		for(var i = 0; i < localPlayer.hitbox.length;i++){
+			var p = localPlayer.hitbox[i];
 			ctx.lineTo(p.x,p.y);
 			//console.log(i, p.x,p.y);
 			
@@ -291,13 +320,13 @@ var playerWidth = 40;
 			ctx.restore();
 
 			//DETECT COLLISION
-			if(p.pos.x < player.hitbox[1].x && p.pos.x > player.hitbox[0].x){
-				if(p.pos.y < player.hitbox[3].y && p.pos.y > player.hitbox[0].y){
-					player.hp -= 1;
-					if(player.hp <= 0){
+			if(p.pos.x < localPlayer.hitbox[1].x && p.pos.x > localPlayer.hitbox[0].x){
+				if(p.pos.y < localPlayer.hitbox[3].y && p.pos.y > localPlayer.hitbox[0].y){
+					localPlayer.hp -= 1;
+					if(localPlayer.hp <= 0){
 						createExplosion(p.pos.x,p.pos.y,4);
-						player.speed = 0;
-						player.pos.x=-2000;
+						localPlayer.speed = 0;
+						localPlayer.pos.x=-2000;
 					}
 					createExplosion(p.pos.x,p.pos.y,1);
 					removeIDFromArray(projectiles,p.id);
@@ -343,13 +372,13 @@ var playerWidth = 40;
 		ctx.lineTo(80 + 300, 50);
 		ctx.stroke();
 		ctx.lineWidth = 4;
-		ctx.strokeStyle=CSScolor(player.color);
+		ctx.strokeStyle=CSScolor(localPlayer.color);
 		ctx.beginPath();
 		ctx.arc(50, 50,30,-Math.PI/2,(weaponCooldown/maxCooldown*2*Math.PI)-Math.PI/2);
 		ctx.stroke();
 		ctx.beginPath();
 		ctx.moveTo(80, 50);
-		ctx.lineTo(80 + player.hp*30, 50);
+		ctx.lineTo(80 + localPlayer.hp*30, 50);
 		ctx.stroke();
 		ctx.lineWidth = 1;
 		
@@ -371,6 +400,7 @@ function removeIDFromArray(array,id){
 		}
 	}
 }
+
 
 
 
