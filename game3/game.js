@@ -4,8 +4,9 @@ function Player(id) {
 	this.pos = { x: 200, y: 200 };
 	this.rot = 0;
 	this.speed = 600;
+	this.thrust = 10;
 	this.velocity = {x:0,y:0};
-	this.rotationSpeed = .05;
+	this.rotationSpeed = .07;
 	this.color = { r: 100, g: 80, b: 200 };
 	this.hitbox = [];
 	this.hp = 10;
@@ -94,7 +95,7 @@ var localPlayer = new Player(0);
 var players = [localPlayer];
 
 
-addAIPlayer();
+
 
 
 var loadingScreen = document.getElementById("loadingScreen");
@@ -118,6 +119,11 @@ document.addEventListener("wheel", wheel, false);
 
 var shooting = false;
 
+var alternativeControls = false;
+
+addAIPlayer();
+var enemyCount = 1;
+var maxEnemyCount = 2;
 
 
 function wheel(event) {
@@ -146,6 +152,9 @@ function keyDown(event) {
 	}
 	else if (key == " ") {
 		shooting = true;
+	}
+	else if (key == "E") {
+		alternativeControls = !alternativeControls;
 	}
 }
 function keyUp(event) {
@@ -199,9 +208,14 @@ function addAIPlayer(){
 function createExplosion(x,y,size){
 	var e = new Explosion(x,y);
 	e.id = explosions.push(e)-1;
-	e.color = {r:randomInt(200,255),g:randomInt(50,230),b:randomInt(0,100)};
+	e.color = {r:randomInt(200,255),g:randomInt(40,200),b:randomInt(0,80)};
 	e.radius = 40 * size;
 	e.lifetime = 0.3 * Math.sqrt(size);
+	while(size > 2){
+		createExplosion(x + randomInt(-100,100),y + randomInt(-100,100),randomFloat(0.5,2.5));
+		//setTimeout(function(){createExplosion(x + randomInt(-100,100),y + randomInt(-100,100),randomFloat(0.5,2.5));},randomInt(0,100));
+		size-=1;
+	}
 }
 
 
@@ -226,7 +240,7 @@ function shootAtTarget(shooter, target){
 	p.pos.y=shooter.pos.y;
 
 	//p.speed = 1000;
-	var distanceToTarget = Math.sqrt(Math.abs(Math.pow(target.pos.y-p.pos.y,2)-Math.pow(target.pos.x-p.pos.x,2)));
+	var distanceToTarget = Math.sqrt(Math.abs(Math.pow(target.pos.y-p.pos.y,2)+Math.pow(target.pos.x-p.pos.x,2)));
 	var timeToTarget = distanceToTarget / p.speed;
 	console.log("sd" + timeToTarget);
 
@@ -250,10 +264,16 @@ var imageData;
 
 var deltaTime = 1/fps;
 
-var maxCooldown = .3;
+var maxCooldown = .1;
 var weaponCooldown = maxCooldown;
 
 var enemyCooldown = .2;
+
+var enemySpawnTimer = 0;
+
+var maxVelocityMagnitude = 10;
+var velocityMagnitude = 0;
+var velocityNormalised = {x:0,y:0};
 
 function update() {
 	if (running) {
@@ -265,15 +285,67 @@ function update() {
 		
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-		//MOVE PLAYER
-		localPlayer.rot += inputRotation * localPlayer.rotationSpeed;
-		if(inputVelocity != 0){
-			localPlayer.velocity.x = Math.cos(localPlayer.rot) * inputVelocity * localPlayer.speed * deltaTime;
-			localPlayer.velocity.y = Math.sin(localPlayer.rot) * inputVelocity * localPlayer.speed * deltaTime;
+		if(alternativeControls){
+			ctx.fillStyle = CSScolor({r:19,g:22,b:25});
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+			ctx.font = "20px Century Gothic";
+			ctx.fillStyle = CSScolor({r:80,g:80,b:80});
+			ctx.fillText("press E for normal controls", canvas.width/2-123, canvas.height - 200);
+			
 		}
 		else {
-			localPlayer.velocity.x *= 1 - 1 * deltaTime;
-			localPlayer.velocity.y *= 1 - 1 * deltaTime;
+			ctx.font = "20px Century Gothic";
+			ctx.fillStyle = CSScolor({r:50,g:50,b:50});
+			ctx.fillText("press E for alternative controls", canvas.width/2-140, canvas.height - 200);
+		}
+
+		//MOVE PLAYER
+		localPlayer.rot += inputRotation * localPlayer.rotationSpeed;
+
+		if(alternativeControls){
+			if(inputVelocity != 0){
+				localPlayer.velocity.x += Math.cos(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
+				localPlayer.velocity.y += Math.sin(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
+			}
+			else {
+				localPlayer.velocity.x *= 1 - 1 * deltaTime;
+				localPlayer.velocity.y *= 1 - 1 * deltaTime;
+			}
+			velocityMagnitude = Math.sqrt(Math.abs(Math.pow(localPlayer.velocity.x,2)+Math.pow(localPlayer.velocity.y,2)));
+
+			if(Math.abs(velocityMagnitude) > maxVelocityMagnitude){
+				velocityNormalised.x = localPlayer.velocity.x / velocityMagnitude;
+				velocityNormalised.y = localPlayer.velocity.y / velocityMagnitude;
+				velocityMagnitude = Math.sign(velocityMagnitude) * maxVelocityMagnitude;
+				localPlayer.velocity.x = velocityNormalised.x * velocityMagnitude;
+				localPlayer.velocity.y = velocityNormalised.y * velocityMagnitude;
+			}
+
+			
+
+		}
+		else {
+			velocityMagnitude = Math.sign(velocityMagnitude) * Math.sqrt(Math.abs(Math.pow(localPlayer.velocity.x,2)+Math.pow(localPlayer.velocity.y,2)));
+
+			if(inputVelocity != 0){
+				
+				velocityMagnitude += inputVelocity * localPlayer.thrust * deltaTime;
+				
+			}
+			else {
+				velocityMagnitude *= 1 - 1 * deltaTime;
+			}
+
+			if(Math.abs(velocityMagnitude) > maxVelocityMagnitude){
+				velocityMagnitude = Math.sign(velocityMagnitude) * maxVelocityMagnitude;
+			}
+			if(inputVelocity < 0){
+				//velocityMagnitude *= -1;
+			}
+
+			localPlayer.velocity.x = Math.cos(localPlayer.rot) * velocityMagnitude;
+			localPlayer.velocity.y = Math.sin(localPlayer.rot) * velocityMagnitude;
+			
 		}
 
 		for(var i = 0; i < players.length;i++){
@@ -299,17 +371,26 @@ function update() {
 				weaponCooldown = maxCooldown;
 			}
 		}
-		enemyCooldown -= deltaTime;
-		if(enemyCooldown <=0){
-		shootAtTarget(players[1],localPlayer);
-		enemyCooldown = .1;
+		
+
+		//ENEMY SPAWNING
+		if(enemyCount < maxEnemyCount){
+			enemySpawnTimer+= deltaTime;
+			if(enemySpawnTimer > 5){
+				addAIPlayer();
+				enemyCount++;
+				enemySpawnTimer = 0;
+			}
 		}
 			
+
+		enemyCooldown -= deltaTime;
+		
 
 		//PLAYERS AI
 		for(var i = 0;i<players.length;i++){
 			var p = players[i];
-			if(p.ai){
+			if(p.ai && p.hp > 0){
 				
 				var targetRot = Math.atan2(localPlayer.pos.y-p.pos.y,localPlayer.pos.x-p.pos.x);
 				if(Math.abs(targetRot-p.rot) <= p.rotationSpeed){
@@ -320,40 +401,49 @@ function update() {
 				}
 				p.velocity.x = Math.cos(p.rot) * 1 * p.speed * deltaTime;
 				p.velocity.y = Math.sin(p.rot) * 1 * p.speed * deltaTime;
+				if(enemyCooldown <=0){
+					shootAtTarget(p,localPlayer);
+					}
 			}
 		}
+
+		if(enemyCooldown <=0){
+			enemyCooldown = .1;
+			}
 
 		//DRAW PLAYERS
 		for(var i = 0;i<players.length;i++){
 			var p = players[i];
+			if(p.hp > 0){
 
-			p.trail.update();
-			if(p.trail.points.length > 0){
-				for(var t = 0; t < p.trail.points.length-1; t++){
+				p.trail.update();
+				if(p.trail.points.length > 0){
+					for(var t = 0; t < p.trail.points.length-1; t++){
+						ctx.beginPath();
+						ctx.moveTo(p.trail.points[t].pos.x,p.trail.points[t].pos.y);
+						ctx.lineTo(p.trail.points[t+1].pos.x,p.trail.points[t+1].pos.y);
+						ctx.strokeStyle=CSScolorAlpha(p.trail.color,1-(p.trail.points[t].age/p.trail.points[t].maxAge));
+						ctx.lineWidth = 5*(1-(p.trail.points[t].age/p.trail.points[t].maxAge));
+						ctx.stroke();
+					}
 					ctx.beginPath();
-					ctx.moveTo(p.trail.points[t].pos.x,p.trail.points[t].pos.y);
-					ctx.lineTo(p.trail.points[t+1].pos.x,p.trail.points[t+1].pos.y);
+					ctx.moveTo(p.trail.points[p.trail.points.length-1].pos.x,p.trail.points[p.trail.points.length-1].pos.y);
+					ctx.lineTo(p.pos.x,p.pos.y);
 					ctx.strokeStyle=CSScolorAlpha(p.trail.color,1-(p.trail.points[t].age/p.trail.points[t].maxAge));
 					ctx.lineWidth = 5*(1-(p.trail.points[t].age/p.trail.points[t].maxAge));
 					ctx.stroke();
 				}
-				ctx.beginPath();
-				ctx.moveTo(p.trail.points[p.trail.points.length-1].pos.x,p.trail.points[p.trail.points.length-1].pos.y);
-				ctx.lineTo(p.pos.x,p.pos.y);
-				ctx.strokeStyle=CSScolorAlpha(p.trail.color,1-(p.trail.points[t].age/p.trail.points[t].maxAge));
-				ctx.lineWidth = 5*(1-(p.trail.points[t].age/p.trail.points[t].maxAge));
-				ctx.stroke();
-			}
 
-			ctx.save();
-			ctx.translate(p.pos.x, p.pos.y);
-			ctx.rotate(p.rot);
-			ctx.translate(-p.pos.x, -p.pos.y);
-			ctx.fillStyle=CSScolor(p.color);
-			//ctx.fillRect(0, 0, canvas.width, canvas.height);
-			//ctx.globalCompositeOperation="destination-in";
-			ctx.drawImage(playerImage, p.pos.x - playerWidth/2, p.pos.y - playerHeight/2, playerWidth, playerHeight);
-			ctx.restore();
+				ctx.save();
+				ctx.translate(p.pos.x, p.pos.y);
+				ctx.rotate(p.rot);
+				ctx.translate(-p.pos.x, -p.pos.y);
+				ctx.fillStyle=CSScolor(p.color);
+				//ctx.fillRect(0, 0, canvas.width, canvas.height);
+				//ctx.globalCompositeOperation="destination-in";
+				ctx.drawImage(playerImage, p.pos.x - playerWidth/2, p.pos.y - playerHeight/2, playerWidth, playerHeight);
+				ctx.restore();
+			}
 		}
 
 		ctx.strokeStyle="red";
@@ -403,17 +493,22 @@ function update() {
 			//DETECT COLLISION
 			for(var ii = 0; ii < players.length;ii++){
 				var player = players[ii];
-				if(p.pos.x < player.hitbox[1].x && p.pos.x > player.hitbox[0].x){
-					if(p.pos.y < player.hitbox[3].y && p.pos.y > player.hitbox[0].y){
-						player.hp -= 1;
-						if(player.hp <= 0){
-							createExplosion(p.pos.x,p.pos.y,4);
-							player.speed = 0;
-							player.pos.x=-2000;
-							player.pos.y=-2000;
+				if(player.hp > 0){
+					if(p.pos.x < player.hitbox[1].x && p.pos.x > player.hitbox[0].x){
+						if(p.pos.y < player.hitbox[3].y && p.pos.y > player.hitbox[0].y){
+							player.hp -= 1;
+							if(player.hp <= 0){
+								createExplosion(p.pos.x,p.pos.y,20);
+								player.speed = 0;
+								player.pos.x=-2000;
+								player.pos.y=-2000;
+								if(player.ai){
+									enemyCount--;
+								}
+							}
+							createExplosion(p.pos.x,p.pos.y,1);
+							removeIDFromArray(projectiles,p.id);
 						}
-						createExplosion(p.pos.x,p.pos.y,1);
-						removeIDFromArray(projectiles,p.id);
 					}
 				}
 		}
