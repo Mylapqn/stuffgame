@@ -18,25 +18,26 @@ function Trail(player){
 	this.color = { r: 100, g: 80, b: 200 };
 	this.parent = player;
 	this.color = this.parent.color;
-	this.maxLength = 30;
+	this.maxLength = 100;
+	this.thickness = 1;
 
 //TODO RESET
 //this.maxLength = 1000;
 
-	this.updateInterval = 3;
+	this.updateInterval = 1;
 	this.lastUpdate = 0;
 	this.update = function(){
 		this.lastUpdate++;
 		if(this.lastUpdate >= this.updateInterval){
 			if(this.points.length < this.maxLength){
-				this.points.push(new TrailPoint(this.parent.pos.x,this.parent.pos.y));
+				this.points.push(new TrailPoint(this.parent.pos.x,this.parent.pos.y, this.maxLength));
 			}
 			else {
 				for(var i = 0; i < this.points.length-1;i++){
 					this.points[i] = this.points[i+1];
 
 				}
-				this.points[this.points.length-1] = new TrailPoint(this.parent.pos.x,this.parent.pos.y);
+				this.points[this.points.length-1] = new TrailPoint(this.parent.pos.x,this.parent.pos.y, this.maxLength);
 			}
 			for(var i = 0; i < this.points.length;i++){
 				this.points[i].age++;
@@ -49,23 +50,30 @@ function Trail(player){
 		}
 	};
 }
-function TrailPoint(x,y){
+function TrailPoint(x,y,maxAge){
 	this.pos = {x:x,y:y};
 	this.age = 0;
-	this.maxAge = 30;
+	this.maxAge = maxAge;
 }
 
 function Projectile(shooter) {
 	this.id = 0;
+	this.guided = false;
 	this.shooter = shooter;
+	this.target = null;
+	this.target;
 	this.pos = { x: 50, y: 50 };
 	this.rot = 0;
-	this.speed = 2000;
+	this.speed = 1500;
 	this.color = { r: 255, g: 255, b: 255 };
 	this.age = 0;
 	this.lifetime = 1;
 	this.randomSpread=.04;
+	this.rotationSpeed = .1;
+	this.trail = null;
 };
+
+
 
 function Explosion(x, y){
 	this.id = 0;
@@ -118,6 +126,7 @@ document.addEventListener("keyup", keyUp, false);
 document.addEventListener("wheel", wheel, false);
 
 var shooting = false;
+var shootingSecondary = false;
 
 var alternativeControls = false;
 
@@ -153,6 +162,9 @@ function keyDown(event) {
 	else if (key == " ") {
 		shooting = true;
 	}
+	else if (key == "SHIFT") {
+		shootingSecondary = true;
+	}
 	else if (key == "E") {
 		alternativeControls = !alternativeControls;
 	}
@@ -178,6 +190,9 @@ function keyUp(event) {
 	else if (key == " ") {
 		shooting = false;
 	}
+	else if (key == "SHIFT") {
+		shootingSecondary = false;
+	}
 }
 
 function mouseDown(event) {
@@ -197,7 +212,7 @@ function addAIPlayer(){
 	p.color = {r:250,g:0,b:0};
 	p.speed = 400;
 	p.rotationSpeed = .05;
-	p.hp = 1;
+	p.hp = 5;
 	p.color = {r:255,g:0,b:0};
 	p.trail.color = p.color;
 	p.pos.x=1000;
@@ -233,6 +248,27 @@ function shootProjectile(shooter){
 	p.lifetime = randomFloat(0.9,1,1);
 }
 
+function shootGuidedProjectile(shooter, target){
+	var p = new Projectile(shooter);
+	p.pos.x=shooter.pos.x;
+	p.pos.y=shooter.pos.y;
+	p.rot=shooter.rot;
+	p.guided = true;
+	p.speed = 100;
+	p.target = target;
+
+	
+
+	p.rot += (Math.random()*2 - 1)*p.randomSpread;
+	p.color = shooter.color;
+	p.id = projectiles.push(p)-1;
+	p.lifetime = randomFloat(1.9,2,1);
+	p.trail = new Trail(p);
+	p.trail.thickness = .5;
+	p.trail.maxLength = 50;
+	p.trail.color = {r:230,g:100,b:0};
+}
+
 function shootAtTarget(shooter, target){
 	var p = new Projectile(shooter);
 	p.rot = shooter.rot;
@@ -240,9 +276,8 @@ function shootAtTarget(shooter, target){
 	p.pos.y=shooter.pos.y;
 
 	//p.speed = 1000;
-	var distanceToTarget = Math.sqrt(Math.abs(Math.pow(target.pos.y-p.pos.y,2)+Math.pow(target.pos.x-p.pos.x,2)));
+	var distanceToTarget = distancePos(target, p);
 	var timeToTarget = distanceToTarget / p.speed;
-	console.log("sd" + timeToTarget);
 
 	var predictedTargetPos = {x: target.pos.x + target.velocity.x / deltaTime * timeToTarget, y:target.pos.y + target.velocity.y / deltaTime * timeToTarget};
 
@@ -265,6 +300,7 @@ var imageData;
 var deltaTime = 1/fps;
 
 var maxCooldown = .1;
+var cooldownStart = .1;
 var weaponCooldown = maxCooldown;
 
 var enemyCooldown = .2;
@@ -300,6 +336,7 @@ function update() {
 		}
 
 		//MOVE PLAYER
+		{
 		localPlayer.rot += inputRotation * localPlayer.rotationSpeed;
 
 		if(alternativeControls){
@@ -347,7 +384,24 @@ function update() {
 			localPlayer.velocity.y = Math.sin(localPlayer.rot) * velocityMagnitude;
 			
 		}
+		}
 
+
+		//ENEMY SPAWNING
+		if(enemyCount < maxEnemyCount){
+			enemySpawnTimer+= deltaTime;
+			if(enemySpawnTimer > 5){
+				addAIPlayer();
+				enemyCount++;
+				enemySpawnTimer = 0;
+			}
+		}
+			
+
+		enemyCooldown -= deltaTime;
+		
+
+		//HITBOX CALCULATION
 		for(var i = 0; i < players.length;i++){
 			var p = players[i];
 
@@ -369,38 +423,55 @@ function update() {
 			if(weaponCooldown<=0){
 				shootProjectile(localPlayer);
 				weaponCooldown = maxCooldown;
+				cooldownStart = weaponCooldown;
+			}
+		}
+		if(shootingSecondary){
+			if(weaponCooldown<=0){
+
+				var tgt;
+				var lowestDist = 2*distancePos(localPlayer,players[1]);
+				for(var t = 0; t < players.length; t++){
+					if(players[t] != localPlayer){
+						d = distancePos(localPlayer,players[t]);
+						if(lowestDist > d){
+							lowestDist = d;
+							tgt = players[t];
+						}
+					}
+				}
+				shootGuidedProjectile(localPlayer,tgt);
+				weaponCooldown = 2;
+				cooldownStart = weaponCooldown;
 			}
 		}
 		
 
-		//ENEMY SPAWNING
-		if(enemyCount < maxEnemyCount){
-			enemySpawnTimer+= deltaTime;
-			if(enemySpawnTimer > 5){
-				addAIPlayer();
-				enemyCount++;
-				enemySpawnTimer = 0;
-			}
-		}
-			
-
-		enemyCooldown -= deltaTime;
 		
 
 		//PLAYERS AI
 		for(var i = 0;i<players.length;i++){
 			var p = players[i];
 			if(p.ai && p.hp > 0){
-				
-				var targetRot = Math.atan2(localPlayer.pos.y-p.pos.y,localPlayer.pos.x-p.pos.x);
-				if(Math.abs(targetRot-p.rot) <= p.rotationSpeed){
-					p.rot = targetRot;
+				rotateToTarget(p,localPlayer);
+
+				var distance = distancePos(localPlayer, p);
+
+				var slowingDistance = 500;
+				var stoppingDistance = 200;
+
+				if(distance > slowingDistance){
+					targetThrust = 1;
+				}
+				else if (distance < stoppingDistance){
+					targetThrust = 0;
 				}
 				else {
-					p.rot += Math.sign(targetRot-p.rot) * p.rotationSpeed;
+					targetThrust = (distance - stoppingDistance) / (slowingDistance - stoppingDistance);
 				}
-				p.velocity.x = Math.cos(p.rot) * 1 * p.speed * deltaTime;
-				p.velocity.y = Math.sin(p.rot) * 1 * p.speed * deltaTime;
+
+				p.velocity.x = Math.cos(p.rot) * 1 * p.speed * deltaTime * targetThrust;
+				p.velocity.y = Math.sin(p.rot) * 1 * p.speed * deltaTime * targetThrust;
 				if(enemyCooldown <=0){
 					shootAtTarget(p,localPlayer);
 					}
@@ -416,23 +487,11 @@ function update() {
 			var p = players[i];
 			if(p.hp > 0){
 
+				//DRAW TRAIL
 				p.trail.update();
-				if(p.trail.points.length > 0){
-					for(var t = 0; t < p.trail.points.length-1; t++){
-						ctx.beginPath();
-						ctx.moveTo(p.trail.points[t].pos.x,p.trail.points[t].pos.y);
-						ctx.lineTo(p.trail.points[t+1].pos.x,p.trail.points[t+1].pos.y);
-						ctx.strokeStyle=CSScolorAlpha(p.trail.color,1-(p.trail.points[t].age/p.trail.points[t].maxAge));
-						ctx.lineWidth = 5*(1-(p.trail.points[t].age/p.trail.points[t].maxAge));
-						ctx.stroke();
-					}
-					ctx.beginPath();
-					ctx.moveTo(p.trail.points[p.trail.points.length-1].pos.x,p.trail.points[p.trail.points.length-1].pos.y);
-					ctx.lineTo(p.pos.x,p.pos.y);
-					ctx.strokeStyle=CSScolorAlpha(p.trail.color,1-(p.trail.points[t].age/p.trail.points[t].maxAge));
-					ctx.lineWidth = 5*(1-(p.trail.points[t].age/p.trail.points[t].maxAge));
-					ctx.stroke();
-				}
+				renderTrail(p.trail);
+				
+
 
 				ctx.save();
 				ctx.translate(p.pos.x, p.pos.y);
@@ -443,10 +502,14 @@ function update() {
 				//ctx.globalCompositeOperation="destination-in";
 				ctx.drawImage(playerImage, p.pos.x - playerWidth/2, p.pos.y - playerHeight/2, playerWidth, playerHeight);
 				ctx.restore();
+				ctx.fillStyle = CSScolor(p.color);
+				/*ctx.fillText(p.rot,p.pos.x,p.pos.y+30);*/
 			}
 		}
 
-		ctx.strokeStyle="red";
+		//DRAW HITBOXES
+		{
+		/*ctx.strokeStyle="red";
 		ctx.beginPath();
 		ctx.moveTo(localPlayer.hitbox[0].x,localPlayer.hitbox[0].y);
 		for(var i = 0; i < localPlayer.hitbox.length;i++){
@@ -456,15 +519,27 @@ function update() {
 			
 		}
 		ctx.closePath();
-		//ctx.stroke();
+		ctx.stroke();*/
+		}
 
 		//PROJECTILES LOOP
 		for(var i = 0; i < projectiles.length; i++){
 			var p = projectiles[i];
-			//MOVE PROJECTILE
-			p.pos.x += Math.cos(p.rot) * p.speed * deltaTime;
-			p.pos.y += Math.sin(p.rot) * p.speed * deltaTime;
+
 			p.age += deltaTime;
+			//MOVE PROJECTILE
+			if(!p.guided){
+				p.pos.x += Math.cos(p.rot) * p.speed * deltaTime;
+				p.pos.y += Math.sin(p.rot) * p.speed * deltaTime;
+			}
+			else {
+				rotateToTarget(p,p.target);
+				p.speed += 500 * deltaTime;
+				p.pos.x += Math.cos(p.rot) * p.speed * deltaTime;
+				p.pos.y += Math.sin(p.rot) * p.speed * deltaTime;
+				p.trail.update();
+				renderTrail(p.trail);
+			}
 
 			//KILL IF TOO OLD
 			if(p.age > p.lifetime){
@@ -481,19 +556,25 @@ function update() {
 			ctx.save();
 			ctx.fillStyle=CSScolor(p.color);
 			rotateCtx(p.pos.x,p.pos.y,p.rot);
-			ctx.fillRect(p.pos.x-10,p.pos.y-1.5,20,3);
-			ctx.fillStyle=CSScolorAlpha(p.color,0.5);
-			ctx.fillRect(p.pos.x-30,p.pos.y-1.5,30,3);
-			ctx.fillStyle=CSScolorAlpha(p.color,0.3);
-			ctx.fillRect(p.pos.x-60,p.pos.y-1.5,40,3);
-			ctx.fillStyle=CSScolorAlpha(p.color,0.2);
-			ctx.fillRect(p.pos.x-100,p.pos.y-1.5,100,3);
+			if(!p.guided){
+				ctx.fillRect(p.pos.x-10,p.pos.y-1.5,20,3);
+				ctx.fillStyle=CSScolorAlpha(p.color,0.5);
+				ctx.fillRect(p.pos.x-30,p.pos.y-1.5,30,3);
+				ctx.fillStyle=CSScolorAlpha(p.color,0.3);
+				ctx.fillRect(p.pos.x-60,p.pos.y-1.5,40,3);
+				ctx.fillStyle=CSScolorAlpha(p.color,0.2);
+				ctx.fillRect(p.pos.x-100,p.pos.y-1.5,100,3);
+			}
+			else {
+				ctx.fillRect(p.pos.x-10,p.pos.y-2.5,20,5);
+				
+			}
 			ctx.restore();
 
 			//DETECT COLLISION
 			for(var ii = 0; ii < players.length;ii++){
 				var player = players[ii];
-				if(player.hp > 0){
+				if(player.hp > 0 && player != p.shooter){
 					if(p.pos.x < player.hitbox[1].x && p.pos.x > player.hitbox[0].x){
 						if(p.pos.y < player.hitbox[3].y && p.pos.y > player.hitbox[0].y){
 							player.hp -= 1;
@@ -554,7 +635,7 @@ function update() {
 		ctx.lineWidth = 4;
 		ctx.strokeStyle=CSScolor(localPlayer.color);
 		ctx.beginPath();
-		ctx.arc(50, 50,30,-Math.PI/2,(weaponCooldown/maxCooldown*2*Math.PI)-Math.PI/2);
+		ctx.arc(50, 50,30,-Math.PI/2,(weaponCooldown/cooldownStart*2*Math.PI)-Math.PI/2);
 		ctx.stroke();
 		ctx.beginPath();
 		ctx.moveTo(80, 50);
@@ -563,6 +644,24 @@ function update() {
 		ctx.lineWidth = 1;
 		
 
+	}
+}
+
+function rotateToTarget(object,target){
+	if(Math.abs(object.rot)>Math.PI*2){
+		object.rot = object.rot % (Math.PI*2);
+	}
+	var targetRot = Math.atan2(target.pos.y-object.pos.y,target.pos.x-object.pos.x);
+	var rotDiff = Math.abs(targetRot-object.rot);
+	if(rotDiff > Math.PI){
+		targetRot = Math.sign(object.rot)*2*Math.PI + targetRot;
+		rotDiff = Math.abs(targetRot-object.rot);
+	}
+	if(Math.abs(targetRot-object.rot) <= object.rotationSpeed){
+		object.rot = targetRot;
+	}
+	else {
+		object.rot += Math.sign(targetRot-object.rot) * object.rotationSpeed;
 	}
 }
 
@@ -578,6 +677,28 @@ function removeIDFromArray(array,id){
 		if(array[i].id == id){
 			array.splice(i,1);
 		}
+	}
+}
+
+function renderTrail(trail){
+	if(trail.points.length > 0){
+		for(var t = 0; t < trail.points.length-1; t++){
+			ctx.beginPath();
+			ctx.moveTo(trail.points[t].pos.x,trail.points[t].pos.y);
+			ctx.lineTo(trail.points[t+1].pos.x,trail.points[t+1].pos.y);
+			ctx.strokeStyle=CSScolorAlpha(trail.color,1-(trail.points[t].age/trail.points[t].maxAge));
+			ctx.lineWidth = trail.thickness * 5*(1-(trail.points[t].age/trail.points[t].maxAge));
+			ctx.stroke();
+		}
+		ctx.beginPath();
+		ctx.moveTo(trail.points[trail.points.length-1].pos.x,trail.points[trail.points.length-1].pos.y);
+		ctx.lineTo(trail.parent.pos.x,trail.parent.pos.y);
+		ctx.strokeStyle=CSScolorAlpha(trail.color,1-(trail.points[t].age/trail.points[t].maxAge));
+		ctx.lineWidth = trail.thickness * 5*(1-(trail.points[t].age/trail.points[t].maxAge));
+		ctx.stroke();
+	}
+	else {
+		console.log("sdawq");
 	}
 }
 
@@ -623,6 +744,10 @@ function randomInt(min,max){
 }
 function randomFloat(min,max){
 	return(Math.random()*(max-min) + min);
+}
+
+function distancePos(a,b){
+	return Math.sqrt(Math.abs(Math.pow(a.pos.y-b.pos.y,2)+Math.pow(a.pos.x-b.pos.x,2)));
 }
 
 
