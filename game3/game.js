@@ -1,9 +1,9 @@
 function Player(id) {
 	this.ai = false;
-	this.ID = id;
+	this.id = id;
 	this.pos = { x: 200, y: 200 };
 	this.rot = 0;
-	this.speed = 600;
+	this.speed = 1000;
 	this.thrust = 10;
 	this.velocity = {x:0,y:0};
 	this.rotationSpeed = .07;
@@ -64,14 +64,14 @@ function Projectile(shooter) {
 	this.target;
 	this.pos = { x: 50, y: 50 };
 	this.rot = 0;
-	this.speed = 1500;
+	this.speed = 2500;
 	this.color = { r: 255, g: 255, b: 255 };
 	this.age = 0;
 	this.lifetime = 1;
 	this.randomSpread=.04;
 	this.rotationSpeed = .1;
 	this.trail = null;
-};
+}
 
 
 
@@ -87,8 +87,11 @@ function Explosion(x, y){
 var projectiles = [];
 var explosions = [];
 
-var playerHeight = 20;
-var playerWidth = 20;
+var nextProjectileID = 0;
+var nextExplosionID = 0;
+
+var playerHeight = 100;
+var playerWidth = 100;
 
 var playerImage = new Image();
 playerImage.src = 'images/player.png';
@@ -136,7 +139,12 @@ var maxEnemyCount = 2;
 
 
 function wheel(event) {
-	
+	if (event.deltaY < 0){
+		if (zoom < 5) zoom += 0.1;
+	}
+	if (event.deltaY > 0) {
+		if (zoom > 0.2) zoom -= 0.1;
+	}
 }
 
 
@@ -208,12 +216,21 @@ function mouseUp(event) {
 
 function addAIPlayer(){
 	var p = new Player(players.length);
+	//p.id = players.length;
 	p.ai = true;
 	p.color = {r:250,g:0,b:0};
-	p.speed = 400;
+	p.speed = 500;
 	p.rotationSpeed = .05;
-	p.hp = 5;
+	p.hp = 4;
+	console.log("addad" + p.id);
+	if(p.id == 1)
+
 	p.color = {r:255,g:0,b:0};
+
+	else
+
+	p.color = {r:0,g:255,b:0};
+
 	p.trail.color = p.color;
 	p.pos.x=1000;
 	p.pos.y=1000;
@@ -223,6 +240,8 @@ function addAIPlayer(){
 function createExplosion(x,y,size){
 	var e = new Explosion(x,y);
 	e.id = explosions.push(e)-1;
+	e.id = nextExplosionID;
+	nextExplosionID++;
 	e.color = {r:randomInt(200,255),g:randomInt(40,200),b:randomInt(0,80)};
 	e.radius = 40 * size;
 	e.lifetime = 0.3 * Math.sqrt(size);
@@ -245,6 +264,8 @@ function shootProjectile(shooter){
 	p.rot += (Math.random()*2 - 1)*p.randomSpread;
 	p.color = shooter.color;
 	p.id = projectiles.push(p)-1;
+	p.id = nextProjectileID;
+	nextProjectileID++;
 	p.lifetime = randomFloat(0.9,1,1);
 }
 
@@ -254,15 +275,18 @@ function shootGuidedProjectile(shooter, target){
 	p.pos.y=shooter.pos.y;
 	p.rot=shooter.rot;
 	p.guided = true;
-	p.speed = 100;
+	p.speed = 200;
 	p.target = target;
+	p.rotationSpeed = 0.05;
 
 	
 
 	p.rot += (Math.random()*2 - 1)*p.randomSpread;
 	p.color = shooter.color;
 	p.id = projectiles.push(p)-1;
-	p.lifetime = randomFloat(1.9,2,1);
+	p.id = nextProjectileID;
+	nextProjectileID++;
+	p.lifetime = 2;
 	p.trail = new Trail(p);
 	p.trail.thickness = .5;
 	p.trail.maxLength = 50;
@@ -293,6 +317,8 @@ function shootAtTarget(shooter, target){
 	p.lifetime = randomFloat(1.4,1.6);
 	if(p.lifetime >= timeToTarget)
 	p.id = projectiles.push(p)-1;
+	p.id = nextProjectileID;
+	nextProjectileID++;
 }
 
 var imageData;
@@ -307,40 +333,102 @@ var enemyCooldown = .2;
 
 var enemySpawnTimer = 0;
 
-var maxVelocityMagnitude = 10;
+var maxVelocityMagnitude = localPlayer.speed/71;
 var velocityMagnitude = 0;
 var velocityNormalised = {x:0,y:0};
 
+var lastPos = {x:0,y:0};
+/*
+lastPos.x = localPlayer.pos.x;
+lastPos.y = localPlayer.pos.y;
+*/
+
+var gameOverScreenTimeout = 2;
+
+var pointerDistance = 300;
+
+var zoom = 1;
+
+
 function update() {
 	if (running) {
-
-
 		//TODO: DELTATIME
 		deltaTime=deltaTime;
 		//TODO: DELTATIME
+
 		
+		ctx.translate(lastPos.x,lastPos.y);
+
+		//SCREEN SPACE BG FX
+
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+
+		lastPos.x = localPlayer.pos.x - canvas.width/2/zoom;
+		lastPos.y = localPlayer.pos.y - canvas.height/2/zoom;
+
+
+		//CONTROLS PROMPT
+		{
 
 		if(alternativeControls){
 			ctx.fillStyle = CSScolor({r:19,g:22,b:25});
 			ctx.fillRect(0, 0, canvas.width, canvas.height);
 			ctx.font = "20px Century Gothic";
 			ctx.fillStyle = CSScolor({r:80,g:80,b:80});
-			ctx.fillText("press E for normal controls", canvas.width/2-123, canvas.height - 200);
+			ctx.fillText("press E for normal controls", canvas.width/2-123, canvas.height - 300);
 			
 		}
 		else {
 			ctx.font = "20px Century Gothic";
 			ctx.fillStyle = CSScolor({r:50,g:50,b:50});
-			ctx.fillText("press E for alternative controls", canvas.width/2-140, canvas.height - 200);
+			ctx.fillText("press E for alternative controls", canvas.width/2-140, canvas.height - 300);
+		}
 		}
 
-		//MOVE PLAYER
+
+		//PLAYER CIRCLE HUD
+		{
+		ctx.lineWidth = 3;
+		ctx.strokeStyle=CSScolorAlpha({r:255,g:255,b:255},.1);
+		ctx.beginPath();
+		ctx.arc(canvas.width/2, canvas.height/2,pointerDistance + 6,0,Math.PI*2);
+		ctx.stroke();
+		ctx.strokeStyle=CSScolorAlpha({r:255,g:255,b:255},.2);
+		ctx.beginPath();
+		ctx.arc(canvas.width/2 + localPlayer.velocity.x * pointerDistance / 15, canvas.height/2  + localPlayer.velocity.y * pointerDistance / 15,5,0,Math.PI*2);
+		ctx.stroke();
+
+		//GAUGES
+		ctx.beginPath();
+		ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(1.75),Math.PI *(0.25));
+		ctx.stroke();
+		ctx.beginPath();
+		ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(0.75),Math.PI *(1.25));
+		ctx.stroke();
+
+		ctx.strokeStyle=CSScolor(localPlayer.color);
+
+		ctx.beginPath();
+		ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(1.75 - 0.001 + 0.5 * (1-(localPlayer.hp / 10))),Math.PI *(0.25));
+		ctx.stroke();
+
+		ctx.strokeStyle=CSScolor({r:180,g:80,b:30});
+
+		ctx.beginPath();
+		ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(0.75),Math.PI *(1.25 -  0.5 * ((weaponCooldown / cooldownStart))));
+		ctx.stroke();
+		}
+
+		ctx.scale(zoom,zoom);
+		ctx.translate(-lastPos.x,-lastPos.y);
+
+		//LOCAL PLAYER MOVEMENT
 		{
 		localPlayer.rot += inputRotation * localPlayer.rotationSpeed;
 
 		if(alternativeControls){
-			if(inputVelocity != 0){
+			if(inputVelocity != 0 && localPlayer.hp > 0){
 				localPlayer.velocity.x += Math.cos(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
 				localPlayer.velocity.y += Math.sin(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
 			}
@@ -364,7 +452,7 @@ function update() {
 		else {
 			velocityMagnitude = Math.sign(velocityMagnitude) * Math.sqrt(Math.abs(Math.pow(localPlayer.velocity.x,2)+Math.pow(localPlayer.velocity.y,2)));
 
-			if(inputVelocity != 0){
+			if(inputVelocity != 0 && localPlayer.hp > 0){
 				
 				velocityMagnitude += inputVelocity * localPlayer.thrust * deltaTime;
 				
@@ -419,32 +507,37 @@ function update() {
 			weaponCooldown = 0;
 		}
 
-		if(shooting){
-			if(weaponCooldown<=0){
-				shootProjectile(localPlayer);
-				weaponCooldown = maxCooldown;
-				cooldownStart = weaponCooldown;
+		//LOCAL SHOOTING
+		if(localPlayer.hp > 0){
+			if(shooting){
+				if(weaponCooldown<=0){
+					shootProjectile(localPlayer);
+					weaponCooldown = maxCooldown;
+					cooldownStart = weaponCooldown;
+				}
 			}
-		}
-		if(shootingSecondary){
-			if(weaponCooldown<=0){
+			if(shootingSecondary){
+				if(weaponCooldown<=0){
 
-				var tgt;
-				var lowestDist = 2*distancePos(localPlayer,players[1]);
-				for(var t = 0; t < players.length; t++){
-					if(players[t] != localPlayer){
-						d = distancePos(localPlayer,players[t]);
-						if(lowestDist > d){
-							lowestDist = d;
-							tgt = players[t];
+					var tgt;
+					var lowestDist = 2*distancePos(localPlayer,players[1]);
+					for(var t = 0; t < players.length; t++){
+						if(players[t] != localPlayer){
+							if(players[t].hp > 0){
+								d = distancePos(localPlayer,players[t]);
+								if(lowestDist > d){
+									lowestDist = d;
+									tgt = players[t];
+								}
+							}
 						}
 					}
+					shootGuidedProjectile(localPlayer,tgt);
+					weaponCooldown = 2;
+					cooldownStart = weaponCooldown;
 				}
-				shootGuidedProjectile(localPlayer,tgt);
-				weaponCooldown = 2;
-				cooldownStart = weaponCooldown;
 			}
-		}
+	}
 		
 
 		
@@ -487,23 +580,48 @@ function update() {
 			var p = players[i];
 			if(p.hp > 0){
 
-				//DRAW TRAIL
-				p.trail.update();
-				renderTrail(p.trail);
-				
+				//TEST IF ON SCREEN
+				if(p.pos.x - localPlayer.pos.x < canvas.width/2/zoom && p.pos.x - localPlayer.pos.x > -canvas.width/2/zoom && p.pos.y - localPlayer.pos.y < canvas.height/2/zoom && p.pos.y - localPlayer.pos.y > -canvas.height/2/zoom){
+					//DRAW TRAIL
+					p.trail.update();
+					renderTrail(p.trail);
+					
 
 
-				ctx.save();
-				ctx.translate(p.pos.x, p.pos.y);
-				ctx.rotate(p.rot);
-				ctx.translate(-p.pos.x, -p.pos.y);
-				ctx.fillStyle=CSScolor(p.color);
-				//ctx.fillRect(0, 0, canvas.width, canvas.height);
-				//ctx.globalCompositeOperation="destination-in";
-				ctx.drawImage(playerImage, p.pos.x - playerWidth/2, p.pos.y - playerHeight/2, playerWidth, playerHeight);
-				ctx.restore();
-				ctx.fillStyle = CSScolor(p.color);
-				/*ctx.fillText(p.rot,p.pos.x,p.pos.y+30);*/
+					ctx.save();
+					ctx.translate(p.pos.x, p.pos.y);
+					ctx.rotate(p.rot);
+					ctx.translate(-p.pos.x, -p.pos.y);
+					ctx.fillStyle=CSScolor(p.color);
+					//ctx.fillRect(0, 0, canvas.width, canvas.height);
+					//ctx.globalCompositeOperation="destination-in";
+					ctx.drawImage(playerImage, p.pos.x - playerWidth/2, p.pos.y - playerHeight/2, playerWidth, playerHeight);
+					ctx.restore();
+					ctx.fillStyle = CSScolor(p.color);
+					/*ctx.fillText(p.rot,p.pos.x,p.pos.y+30);*/
+				}
+				else {
+					//DRAW POINTER
+
+					ctx.translate(lastPos.x,lastPos.y);
+					ctx.scale(1/zoom,1/zoom);
+					ctx.fillStyle = CSScolor(p.color);
+					var rotToPlayer = objectRot(localPlayer,p);
+					ctx.save();
+					rotateCtx(canvas.width/2, canvas.height/2, rotToPlayer);
+					//ctx.fillRect(canvas.width/2 + pointerPos.x - 10,canvas.height/2 + pointerPos.y - 10,20,20);
+					//ctx.fillRect(canvas.width/2 + pointerDistance,canvas.height/2,20,2);
+
+					ctx.beginPath();
+					ctx.moveTo(canvas.width/2 + pointerDistance+12, canvas.height/2);
+					ctx.lineTo(canvas.width/2 + pointerDistance, canvas.height/2 - 6);
+					ctx.lineTo(canvas.width/2 + pointerDistance, canvas.height/2 + 6);
+					ctx.fill();
+
+					ctx.restore();
+					ctx.scale(zoom,zoom);
+					ctx.translate(-lastPos.x,-lastPos.y);
+				}
 			}
 		}
 
@@ -579,13 +697,15 @@ function update() {
 						if(p.pos.y < player.hitbox[3].y && p.pos.y > player.hitbox[0].y){
 							player.hp -= 1;
 							if(player.hp <= 0){
+								//PLAYER DEATH
 								createExplosion(p.pos.x,p.pos.y,20);
 								player.speed = 0;
-								player.pos.x=-2000;
-								player.pos.y=-2000;
+								/*player.pos.x=-2000;
+								player.pos.y=-2000;*/
 								if(player.ai){
 									enemyCount--;
 								}
+								removeIDFromArray(players,player.id);
 							}
 							createExplosion(p.pos.x,p.pos.y,1);
 							removeIDFromArray(projectiles,p.id);
@@ -626,6 +746,11 @@ function update() {
 		}
 
 		//DRAW HUD
+
+		ctx.translate(lastPos.x,lastPos.y);
+
+		ctx.scale(1/zoom,1/zoom);
+		/*
 		ctx.lineWidth = 1;
 		ctx.strokeStyle="gray";
 		ctx.beginPath();
@@ -642,6 +767,23 @@ function update() {
 		ctx.lineTo(80 + localPlayer.hp*30, 50);
 		ctx.stroke();
 		ctx.lineWidth = 1;
+		*/
+
+
+		//DEATH SCREEN
+		if(localPlayer.hp <= 0){
+			if(gameOverScreenTimeout <= 0){
+				ctx.fillStyle = CSScolor({r:0,g:0,b:0});
+				ctx.fillRect(0, 0, canvas.width, canvas.height);
+				ctx.fillStyle = CSScolor({r:80,g:80,b:80});
+				ctx.fillText("Game over. No restart button yet. Sorry.", canvas.width/2-190, canvas.height/2);
+			}
+			else gameOverScreenTimeout -= deltaTime;
+
+		}
+
+		
+		ctx.translate(-lastPos.x,-lastPos.y);
 		
 
 	}
@@ -651,7 +793,7 @@ function rotateToTarget(object,target){
 	if(Math.abs(object.rot)>Math.PI*2){
 		object.rot = object.rot % (Math.PI*2);
 	}
-	var targetRot = Math.atan2(target.pos.y-object.pos.y,target.pos.x-object.pos.x);
+	var targetRot = objectRot(object,target);
 	var rotDiff = Math.abs(targetRot-object.rot);
 	if(rotDiff > Math.PI){
 		targetRot = Math.sign(object.rot)*2*Math.PI + targetRot;
@@ -663,6 +805,10 @@ function rotateToTarget(object,target){
 	else {
 		object.rot += Math.sign(targetRot-object.rot) * object.rotationSpeed;
 	}
+}
+
+function objectRot(from,to){
+	return Math.atan2(to.pos.y-from.pos.y,to.pos.x-from.pos.x);
 }
 
 function rotateCtx(x,y,angle){
