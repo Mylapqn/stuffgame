@@ -64,7 +64,7 @@ function Projectile(shooter) {
 	this.target;
 	this.pos = { x: 50, y: 50 };
 	this.rot = 0;
-	this.speed = 2500;
+	this.speed = 2000;
 	this.color = { r: 255, g: 255, b: 255 };
 	this.age = 0;
 	this.lifetime = 1;
@@ -135,7 +135,7 @@ var alternativeControls = false;
 
 addAIPlayer();
 var enemyCount = 1;
-var maxEnemyCount = 2;
+var maxEnemyCount = 5;
 
 
 function wheel(event) {
@@ -219,7 +219,7 @@ function addAIPlayer(){
 	//p.id = players.length;
 	p.ai = true;
 	p.color = {r:250,g:0,b:0};
-	p.speed = 500;
+	p.speed = 400;
 	p.rotationSpeed = .05;
 	p.hp = 4;
 	console.log("addad" + p.id);
@@ -348,6 +348,8 @@ var gameOverScreenTimeout = 2;
 var pointerDistance = 300;
 
 var zoom = 1;
+
+var hitboxSize = .5;
 
 
 function update() {
@@ -496,7 +498,7 @@ function update() {
 			p.pos.x += p.velocity.x;
 			p.pos.y += p.velocity.y;
 
-			p.hitbox = [{x:p.pos.x-playerWidth/2,y:p.pos.y-playerHeight/2},{x:p.pos.x+playerWidth/2,y:p.pos.y-playerHeight/2},{x:p.pos.x+playerWidth/2,y:p.pos.y+playerHeight/2},{x:p.pos.x-playerWidth/2,y:p.pos.y+playerHeight/2}]
+			p.hitbox = [{x:p.pos.x-hitboxSize*playerWidth/2,y:p.pos.y-hitboxSize*playerHeight/2},{x:p.pos.x+hitboxSize*playerWidth/2,y:p.pos.y-hitboxSize*playerHeight/2},{x:p.pos.x+hitboxSize*playerWidth/2,y:p.pos.y+hitboxSize*playerHeight/2},{x:p.pos.x-hitboxSize*playerWidth/2,y:p.pos.y+hitboxSize*playerHeight/2}]
 		}
 
 
@@ -519,7 +521,8 @@ function update() {
 			if(shootingSecondary){
 				if(weaponCooldown<=0){
 
-					var tgt;
+					if(enemyCount > 0){
+					var tgt = null;
 					var lowestDist = 2*distancePos(localPlayer,players[1]);
 					for(var t = 0; t < players.length; t++){
 						if(players[t] != localPlayer){
@@ -532,10 +535,13 @@ function update() {
 							}
 						}
 					}
-					shootGuidedProjectile(localPlayer,tgt);
-					weaponCooldown = 2;
-					cooldownStart = weaponCooldown;
+					if(tgt != null){
+						shootGuidedProjectile(localPlayer,tgt);
+						weaponCooldown = 2;
+						cooldownStart = weaponCooldown;
+					}
 				}
+			}
 			}
 	}
 		
@@ -572,7 +578,7 @@ function update() {
 		}
 
 		if(enemyCooldown <=0){
-			enemyCooldown = .1;
+			enemyCooldown = .2;
 			}
 
 		//DRAW PLAYERS
@@ -627,7 +633,9 @@ function update() {
 
 		//DRAW HITBOXES
 		{
-		/*ctx.strokeStyle="red";
+		/*
+		ctx.strokeStyle="red";
+		ctx.lineWidth = 1;
 		ctx.beginPath();
 		ctx.moveTo(localPlayer.hitbox[0].x,localPlayer.hitbox[0].y);
 		for(var i = 0; i < localPlayer.hitbox.length;i++){
@@ -637,7 +645,8 @@ function update() {
 			
 		}
 		ctx.closePath();
-		ctx.stroke();*/
+		ctx.stroke();
+		*/
 		}
 
 		//PROJECTILES LOOP
