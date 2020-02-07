@@ -477,6 +477,8 @@ function update() {
 				ctx.fillStyle = CSScolor({r:50,g:50,b:50});
 				ctx.fillText("press F to pay respects", canvas.width/2-110, canvas.height - 220);
 			}
+			ctx.fillStyle = CSScolor({r:80,g:80,b:80});
+				ctx.fillText("Kills: " + score, canvas.width/2-30, canvas.height - 180);
 
 			
 		//#endregion
@@ -980,7 +982,9 @@ function update() {
 				ctx.fillStyle = CSScolor({r:0,g:0,b:0});
 				ctx.fillRect(0, 0, canvas.width, canvas.height);
 				ctx.fillStyle = CSScolor({r:80,g:80,b:80});
-				ctx.fillText("Game over. No restart button yet. Sorry.", canvas.width/2-190, canvas.height/2);
+				ctx.fillText("Game over. No restart button yet. Sorry.", canvas.width/2-188, canvas.height/2);
+				ctx.fillStyle = CSScolor({r:80,g:80,b:80});
+				ctx.fillText("Score: " + score, canvas.width/2-30, canvas.height/2 + 40);
 				running = false;
 			}
 			else gameOverScreenTimeout -= deltaTime;
