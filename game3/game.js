@@ -1,16 +1,20 @@
+//#region OBJECT DEFS
+
+
 function Player(id) {
 	this.ai = false;
 	this.id = id;
 	this.pos = { x: 200, y: 200 };
 	this.rot = 0;
-	this.speed = 1000;
-	this.thrust = 10;
+	this.speed = 850;
+	this.thrust = 1000;
 	this.velocity = {x:0,y:0};
-	this.rotationSpeed = .07;
+	this.rotationSpeed = 4;
 	this.color = { r: 100, g: 80, b: 200 };
 	this.hitbox = [];
 	this.hp = 10;
 	this.trail=new Trail(this);
+	this.team = 1;
 };
 
 function Trail(player){
@@ -18,29 +22,32 @@ function Trail(player){
 	this.color = { r: 100, g: 80, b: 200 };
 	this.parent = player;
 	this.color = this.parent.color;
-	this.maxLength = 100;
 	this.thickness = 1;
-
-//TODO RESET
-//this.maxLength = 1000;
-
-	this.updateInterval = 1;
+	
+	//TODO RESET
+	//this.maxLength = 1000;
+	
+	this.updateInterval = 1/30;
+	this.maxLength = 2/this.updateInterval;
 	this.lastUpdate = 0;
 	this.update = function(){
-		this.lastUpdate++;
+		this.lastUpdate+=deltaTime;
+		console.log(this.lastUpdate, deltaTime);
 		if(this.lastUpdate >= this.updateInterval){
 			if(this.points.length < this.maxLength){
-				this.points.push(new TrailPoint(this.parent.pos.x,this.parent.pos.y, this.maxLength));
+				this.points.push(new TrailPoint(this.parent.pos.x,this.parent.pos.y, this.maxLength*this.updateInterval));
+				//this.points.push(new TrailPoint(this.parent.pos.x,this.parent.pos.y, 5));
 			}
 			else {
 				for(var i = 0; i < this.points.length-1;i++){
 					this.points[i] = this.points[i+1];
 
 				}
-				this.points[this.points.length-1] = new TrailPoint(this.parent.pos.x,this.parent.pos.y, this.maxLength);
+				this.points[this.points.length-1] = new TrailPoint(this.parent.pos.x,this.parent.pos.y, this.maxLength*this.updateInterval);
+				//this.points[this.points.length-1] = new TrailPoint(this.parent.pos.x,this.parent.pos.y, 5);
 			}
 			for(var i = 0; i < this.points.length;i++){
-				this.points[i].age++;
+				this.points[i].age+=this.lastUpdate;
 				if(this.points[i].age >= this.points[i].maxAge){
 
 				}
@@ -69,7 +76,7 @@ function Projectile(shooter) {
 	this.age = 0;
 	this.lifetime = 1;
 	this.randomSpread=.04;
-	this.rotationSpeed = .1;
+	this.rotationSpeed = 1;
 	this.trail = null;
 }
 
@@ -84,8 +91,26 @@ function Explosion(x, y){
 	this.color = {r:255,g:255,b:150};
 }
 
+function Particle(x, y, fadeOpacity, fadeSize, fadeDirection, duration, radius, color, opacity){
+	this.fadeOpacity = fadeOpacity;
+	this.fadeSize = fadeSize;
+	this.sizeFadeDirection = fadeDirection;
+	this.id = frameIndex*100+particles.length;
+	this.pos = {x:x,y:y};
+	this.lifetime=duration;
+	this.age=0;
+	this.radius = radius;
+	this.opacity = opacity;
+	this.color = color;
+}
+//#endregion
+
+//#region INIT VARIABLES
+var frameIndex = 0;
+
 var projectiles = [];
 var explosions = [];
+var particles = [];
 
 var nextProjectileID = 0;
 var nextExplosionID = 0;
@@ -119,23 +144,69 @@ document.body.style.height = window.innerHeight + "px";
 
 var fps = 60;
 		
+
+
+var shooting = false;
+var shootingSecondary = false;
+
+var alternativeControls = false;
+var inertialDampening = true;
+
+var enemyCount = 0;
+var maxEnemyCount = 3;
+var score = 0;
+
+
+var imageData;
+
+var trueDeltaTime = 1/fps;
+var slowMotion = false;
+var timeMultiplier = 1;
+var deltaTime = trueDeltaTime * timeMultiplier;
+
+var maxCooldown = .1;
+var cooldownStart = .1;
+var weaponCooldown = maxCooldown;
+
+var enemyCooldown = .2;
+
+var enemySpawnTimer = 0;
+
+var maxVelocityMagnitude = localPlayer.speed;
+var velocityMagnitude = 0;
+var velocityNormalised = {x:0,y:0};
+
+var lastPos = {x:0,y:0};
+
+var gameOverScreenTimeout = 2;
+
+var pointerDistance = 300;
+
+var zoom = 1;
+
+var hitboxSize = .5;
+//#endregion
+
+//#region INIT FUNCTION CALLS
+
+
 setInterval(update, 1000 / fps);
 
 gameStart();
+
+for(var i = 0; i < 3000; i++){
+	particles.push(new Particle(randomInt(-canvas.width*3,canvas.width*3),randomInt(-canvas.height*3,canvas.height*3),true,false,1,10,1,{r:255,g:255,b:255},randomFloat(0.2,1)));
+}
+
+//#endregion
+
+//#region INPUT
 
 
 document.addEventListener("keydown", keyDown, false);
 document.addEventListener("keyup", keyUp, false);
 document.addEventListener("wheel", wheel, false);
 
-var shooting = false;
-var shootingSecondary = false;
-
-var alternativeControls = false;
-
-addAIPlayer();
-var enemyCount = 1;
-var maxEnemyCount = 5;
 
 
 function wheel(event) {
@@ -176,6 +247,14 @@ function keyDown(event) {
 	else if (key == "E") {
 		alternativeControls = !alternativeControls;
 	}
+	else if (key == "Q") {
+		inertialDampening = !inertialDampening;
+	}
+	else if (key == "F") {
+		slowMotion = !slowMotion;
+		if(slowMotion) timeMultiplier = 1/4;
+		else timeMultiplier = 1;
+	}
 }
 function keyUp(event) {
 	var key = event.key.toUpperCase();
@@ -214,15 +293,20 @@ function mouseUp(event) {
 	
 }
 
+//#endregion
+
+//#region GAME FUNCTIONS
+
+
 function addAIPlayer(){
 	var p = new Player(players.length);
 	//p.id = players.length;
 	p.ai = true;
 	p.color = {r:250,g:0,b:0};
 	p.speed = 400;
-	p.rotationSpeed = .05;
+	p.rotationSpeed = 3;
 	p.hp = 4;
-	console.log("addad" + p.id);
+	console.log("Added AI player with ID" + p.id);
 	if(p.id == 1)
 
 	p.color = {r:255,g:0,b:0};
@@ -235,9 +319,25 @@ function addAIPlayer(){
 	p.pos.x=1000;
 	p.pos.y=1000;
 	players.push(p);
+	return p;
 }
 
 function createExplosion(x,y,size){
+	var e = new Explosion(x,y);
+	e.id = explosions.push(e)-1;
+	e.id = nextExplosionID;
+	nextExplosionID++;
+	e.color = {r:randomInt(200,255),g:randomInt(40,200),b:randomInt(0,80)};
+	e.radius = 40 * size;
+	e.lifetime = 0.3 * Math.sqrt(size);
+	while(size > 2){
+		createExplosion(x + randomInt(-100,100),y + randomInt(-100,100),randomFloat(0.5,2.5));
+		//setTimeout(function(){createExplosion(x + randomInt(-100,100),y + randomInt(-100,100),randomFloat(0.5,2.5));},randomInt(0,100));
+		size-=1;
+	}
+}
+
+function createParticle(x,y,size){
 	var e = new Explosion(x,y);
 	e.id = explosions.push(e)-1;
 	e.id = nextExplosionID;
@@ -275,9 +375,9 @@ function shootGuidedProjectile(shooter, target){
 	p.pos.y=shooter.pos.y;
 	p.rot=shooter.rot;
 	p.guided = true;
-	p.speed = 200;
+	p.speed = 100;
 	p.target = target;
-	p.rotationSpeed = 0.05;
+	p.rotationSpeed = 2.5;
 
 	
 
@@ -321,129 +421,131 @@ function shootAtTarget(shooter, target){
 	nextProjectileID++;
 }
 
-var imageData;
+//#endregion
 
-var deltaTime = 1/fps;
-
-var maxCooldown = .1;
-var cooldownStart = .1;
-var weaponCooldown = maxCooldown;
-
-var enemyCooldown = .2;
-
-var enemySpawnTimer = 0;
-
-var maxVelocityMagnitude = localPlayer.speed/71;
-var velocityMagnitude = 0;
-var velocityNormalised = {x:0,y:0};
-
-var lastPos = {x:0,y:0};
-/*
-lastPos.x = localPlayer.pos.x;
-lastPos.y = localPlayer.pos.y;
-*/
-
-var gameOverScreenTimeout = 2;
-
-var pointerDistance = 300;
-
-var zoom = 1;
-
-var hitboxSize = .5;
-
-
+//#region UPDATE
 function update() {
 	if (running) {
 		//TODO: DELTATIME
-		deltaTime=deltaTime;
+		trueDeltaTime=trueDeltaTime;
+		deltaTime = trueDeltaTime * timeMultiplier;
 		//TODO: DELTATIME
+		frameIndex++;
 
+		//#region INIT
+		
 		
 		ctx.translate(lastPos.x,lastPos.y);
-
-		//SCREEN SPACE BG FX
-
-		ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-
 		lastPos.x = localPlayer.pos.x - canvas.width/2/zoom;
 		lastPos.y = localPlayer.pos.y - canvas.height/2/zoom;
+		
+		//#endregion
 
+		//#region SCREEN SPACE BG FX
+		
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-		//CONTROLS PROMPT
-		{
-
-		if(alternativeControls){
-			ctx.fillStyle = CSScolor({r:19,g:22,b:25});
-			ctx.fillRect(0, 0, canvas.width, canvas.height);
-			ctx.font = "20px Century Gothic";
-			ctx.fillStyle = CSScolor({r:80,g:80,b:80});
-			ctx.fillText("press E for normal controls", canvas.width/2-123, canvas.height - 300);
+		ctx.fillStyle = CSScolor({r:19,g:22,b:25});
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+		//#region CONTROLS PROMPT
 			
-		}
-		else {
 			ctx.font = "20px Century Gothic";
-			ctx.fillStyle = CSScolor({r:50,g:50,b:50});
-			ctx.fillText("press E for alternative controls", canvas.width/2-140, canvas.height - 300);
-		}
-		}
+			if(!alternativeControls){
+				ctx.fillStyle = CSScolor({r:80,g:80,b:80});
+				ctx.fillText("press E for alternative controls", canvas.width/2-140, canvas.height - 300);
+			}
+			else {
+				ctx.fillStyle = CSScolor({r:50,g:50,b:50});
+				ctx.fillText("press E for normal controls", canvas.width/2-123, canvas.height - 300);
+			}
+			if(inertialDampening){
+				ctx.fillStyle = CSScolor({r:80,g:80,b:80});
+				ctx.fillText("press Q to turn off inertial dampening", canvas.width/2-178, canvas.height - 260);
+				
+			}
+			else {
+				ctx.fillStyle = CSScolor({r:50,g:50,b:50});
+				ctx.fillText("press Q to turn on inertial dampening", canvas.width/2-178, canvas.height - 260);
+			}
 
+			if(slowMotion){
+				ctx.fillStyle = CSScolor({r:80,g:80,b:80});
+				ctx.fillText("press F to stop paying respects", canvas.width/2-145, canvas.height - 220);
+				
+			}
+			else {
+				ctx.fillStyle = CSScolor({r:50,g:50,b:50});
+				ctx.fillText("press F to pay respects", canvas.width/2-110, canvas.height - 220);
+			}
 
-		//PLAYER CIRCLE HUD
-		{
-		ctx.lineWidth = 3;
-		ctx.strokeStyle=CSScolorAlpha({r:255,g:255,b:255},.1);
-		ctx.beginPath();
-		ctx.arc(canvas.width/2, canvas.height/2,pointerDistance + 6,0,Math.PI*2);
-		ctx.stroke();
-		ctx.strokeStyle=CSScolorAlpha({r:255,g:255,b:255},.2);
-		ctx.beginPath();
-		ctx.arc(canvas.width/2 + localPlayer.velocity.x * pointerDistance / 15, canvas.height/2  + localPlayer.velocity.y * pointerDistance / 15,5,0,Math.PI*2);
-		ctx.stroke();
+			
+		//#endregion
 
-		//GAUGES
-		ctx.beginPath();
-		ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(1.75),Math.PI *(0.25));
-		ctx.stroke();
-		ctx.beginPath();
-		ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(0.75),Math.PI *(1.25));
-		ctx.stroke();
+		//#region PLAYER CIRCLE HUD
+			
+			ctx.lineWidth = 3;
+			ctx.strokeStyle=CSScolorAlpha({r:255,g:255,b:255},.1);
+			ctx.beginPath();
+			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance + 6,0,Math.PI*2);
+			ctx.stroke();
+			ctx.strokeStyle=CSScolorAlpha({r:255,g:255,b:255},.2);
+			ctx.beginPath();
+			ctx.arc(canvas.width/2 + localPlayer.velocity.x * pointerDistance / deltaTime / 900, canvas.height/2  + localPlayer.velocity.y * pointerDistance / deltaTime / 900,5,0,Math.PI*2);
+			ctx.stroke();
 
-		ctx.strokeStyle=CSScolor(localPlayer.color);
+		//#region GAUGES
+			ctx.beginPath();
+			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(1.75),Math.PI *(0.25));
+			ctx.stroke();
+			ctx.beginPath();
+			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(0.75),Math.PI *(1.25));
+			ctx.stroke();
 
-		ctx.beginPath();
-		ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(1.75 - 0.001 + 0.5 * (1-(localPlayer.hp / 10))),Math.PI *(0.25));
-		ctx.stroke();
+			//HP
 
-		ctx.strokeStyle=CSScolor({r:180,g:80,b:30});
+			ctx.strokeStyle=CSScolor(localPlayer.color);
 
-		ctx.beginPath();
-		ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(0.75),Math.PI *(1.25 -  0.5 * ((weaponCooldown / cooldownStart))));
-		ctx.stroke();
-		}
+			ctx.beginPath();
+			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(1.75 - 0.001 + 0.5 * (1-(localPlayer.hp / 10))),Math.PI *(0.25));
+			ctx.stroke();
+
+			//COOLDOWN
+
+			ctx.strokeStyle=CSScolor({r:180,g:80,b:30});
+
+			ctx.beginPath();
+			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(0.75),Math.PI *(1.25 -  0.5 * ((weaponCooldown / cooldownStart))));
+			ctx.stroke();
+			//#endregion
+			
+		//#endregion
 
 		ctx.scale(zoom,zoom);
 		ctx.translate(-lastPos.x,-lastPos.y);
 
-		//LOCAL PLAYER MOVEMENT
-		{
-		localPlayer.rot += inputRotation * localPlayer.rotationSpeed;
+		//#endregion
 
-		if(alternativeControls){
+		//#region LOCAL PLAYER MOVEMENT
+		
+		localPlayer.rot += inputRotation * localPlayer.rotationSpeed * deltaTime;
+
+		if(!alternativeControls){
 			if(inputVelocity != 0 && localPlayer.hp > 0){
-				localPlayer.velocity.x += Math.cos(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
-				localPlayer.velocity.y += Math.sin(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
+				localPlayer.velocity.x += Math.cos(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime * deltaTime;
+				localPlayer.velocity.y += Math.sin(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime * deltaTime;
 			}
-			else {
-				localPlayer.velocity.x *= 1 - 1 * deltaTime;
-				localPlayer.velocity.y *= 1 - 1 * deltaTime;
+			else if (inertialDampening) {
+				localPlayer.velocity.x *= 1 - .3 * deltaTime;
+				localPlayer.velocity.y *= 1 - .3 * deltaTime;
 			}
 			velocityMagnitude = Math.sqrt(Math.abs(Math.pow(localPlayer.velocity.x,2)+Math.pow(localPlayer.velocity.y,2)));
 
-			if(Math.abs(velocityMagnitude) > maxVelocityMagnitude){
+			if(Math.abs(velocityMagnitude) > maxVelocityMagnitude*deltaTime){
 				velocityNormalised.x = localPlayer.velocity.x / velocityMagnitude;
 				velocityNormalised.y = localPlayer.velocity.y / velocityMagnitude;
-				velocityMagnitude = Math.sign(velocityMagnitude) * maxVelocityMagnitude;
+				velocityMagnitude = Math.sign(velocityMagnitude) * maxVelocityMagnitude*deltaTime;
+				localPlayer.velocity.x = velocityNormalised.x * velocityMagnitude;
+				localPlayer.velocity.y = velocityNormalised.y * velocityMagnitude;
 				localPlayer.velocity.x = velocityNormalised.x * velocityMagnitude;
 				localPlayer.velocity.y = velocityNormalised.y * velocityMagnitude;
 			}
@@ -456,15 +558,15 @@ function update() {
 
 			if(inputVelocity != 0 && localPlayer.hp > 0){
 				
-				velocityMagnitude += inputVelocity * localPlayer.thrust * deltaTime;
+				velocityMagnitude += inputVelocity * localPlayer.thrust * deltaTime * deltaTime;
 				
 			}
-			else {
-				velocityMagnitude *= 1 - 1 * deltaTime;
+			else if (inertialDampening) {
+				velocityMagnitude *= 1 - .5 * deltaTime;
 			}
 
-			if(Math.abs(velocityMagnitude) > maxVelocityMagnitude){
-				velocityMagnitude = Math.sign(velocityMagnitude) * maxVelocityMagnitude;
+			if(Math.abs(velocityMagnitude) > maxVelocityMagnitude*deltaTime){
+				velocityMagnitude = Math.sign(velocityMagnitude) * maxVelocityMagnitude*deltaTime;
 			}
 			if(inputVelocity < 0){
 				//velocityMagnitude *= -1;
@@ -474,24 +576,34 @@ function update() {
 			localPlayer.velocity.y = Math.sin(localPlayer.rot) * velocityMagnitude;
 			
 		}
+
+		if (inputVelocity == 0 && Math.abs(velocityMagnitude) < 1) {
+			localPlayer.velocity.x -= .5 * deltaTime * Math.sign(localPlayer.velocity.x);
+			localPlayer.velocity.y -= .5 * deltaTime * Math.sign(localPlayer.velocity.y);
+			if(Math.abs(localPlayer.velocity.x) < .1 && Math.abs(localPlayer.velocity.y) < .1){
+				localPlayer.velocity.x = 0;
+				localPlayer.velocity.y = 0;
+			}
 		}
+		
+		//#endregion
 
-
-		//ENEMY SPAWNING
+		//#region ENEMY SPAWNING
 		if(enemyCount < maxEnemyCount){
 			enemySpawnTimer+= deltaTime;
 			if(enemySpawnTimer > 5){
-				addAIPlayer();
+				var aip = addAIPlayer();
+				aip.team = 2;
 				enemyCount++;
 				enemySpawnTimer = 0;
 			}
 		}
-			
 
 		enemyCooldown -= deltaTime;
-		
 
-		//HITBOX CALCULATION
+		//#endregion
+		
+		//#region HITBOX CALCULATION
 		for(var i = 0; i < players.length;i++){
 			var p = players[i];
 
@@ -500,16 +612,17 @@ function update() {
 
 			p.hitbox = [{x:p.pos.x-hitboxSize*playerWidth/2,y:p.pos.y-hitboxSize*playerHeight/2},{x:p.pos.x+hitboxSize*playerWidth/2,y:p.pos.y-hitboxSize*playerHeight/2},{x:p.pos.x+hitboxSize*playerWidth/2,y:p.pos.y+hitboxSize*playerHeight/2},{x:p.pos.x-hitboxSize*playerWidth/2,y:p.pos.y+hitboxSize*playerHeight/2}]
 		}
-
-
+		//#endregion
 		
+		//#region LOCAL SHOOTING
+
 
 		weaponCooldown-=deltaTime;
 		if(weaponCooldown<0){
 			weaponCooldown = 0;
 		}
 
-		//LOCAL SHOOTING
+
 		if(localPlayer.hp > 0){
 			if(shooting){
 				if(weaponCooldown<=0){
@@ -543,12 +656,14 @@ function update() {
 				}
 			}
 			}
-	}
-		
+			if(weaponCooldown == 0){
+				localPlayer.hp += .3 * deltaTime;
+				if(localPlayer.hp > 10) localPlayer.hp = 10;
+			}
+		}
+		//#endregion
 
-		
-
-		//PLAYERS AI
+		//#region PLAYERS AI
 		for(var i = 0;i<players.length;i++){
 			var p = players[i];
 			if(p.ai && p.hp > 0){
@@ -579,9 +694,10 @@ function update() {
 
 		if(enemyCooldown <=0){
 			enemyCooldown = .2;
-			}
+		}
+		//#endregion
 
-		//DRAW PLAYERS
+		//#region DRAW PLAYERS
 		for(var i = 0;i<players.length;i++){
 			var p = players[i];
 			if(p.hp > 0){
@@ -592,8 +708,8 @@ function update() {
 					p.trail.update();
 					renderTrail(p.trail);
 					
-
-
+					
+					//DRAW PLAYER
 					ctx.save();
 					ctx.translate(p.pos.x, p.pos.y);
 					ctx.rotate(p.rot);
@@ -603,8 +719,20 @@ function update() {
 					//ctx.globalCompositeOperation="destination-in";
 					ctx.drawImage(playerImage, p.pos.x - playerWidth/2, p.pos.y - playerHeight/2, playerWidth, playerHeight);
 					ctx.restore();
-					ctx.fillStyle = CSScolor(p.color);
-					/*ctx.fillText(p.rot,p.pos.x,p.pos.y+30);*/
+					/*ctx.fillStyle = CSScolor(p.color);
+					ctx.fillText(p.rot,p.pos.x,p.pos.y+30);*/
+					//DRAW SMOKE
+					if(p.hp <= 3){
+						if(p.hp <= 3 && p.hp >= 2 && frameIndex % 4 == 0){
+							particles.push(new Particle(p.pos.x+randomFloat(-15,15),p.pos.y+randomFloat(-15,15),true,true,-1,1,40,{r:0,g:0,b:0},.3));
+						}
+						if(p.hp <= 2 && frameIndex % 3 == 0){
+							particles.push(new Particle(p.pos.x+randomFloat(-15,15),p.pos.y+randomFloat(-15,15),true,true,-1,1.5,50,{r:0,g:0,b:0},1));
+						}
+						if(p.hp <= 1 && frameIndex % 5 == 0){
+							particles.push(new Particle(p.pos.x+randomFloat(-25,25),p.pos.y+randomFloat(-25,25),true,true,-1,1.2,10,{r:200,g:80,b:0},1));
+						}
+					}
 				}
 				else {
 					//DRAW POINTER
@@ -630,8 +758,9 @@ function update() {
 				}
 			}
 		}
+		//#endregion
 
-		//DRAW HITBOXES
+		//#region DRAW HITBOXES
 		{
 		/*
 		ctx.strokeStyle="red";
@@ -648,27 +777,31 @@ function update() {
 		ctx.stroke();
 		*/
 		}
+		//#endregion
 
-		//PROJECTILES LOOP
+		//#region PROJECTILES LOOP
 		for(var i = 0; i < projectiles.length; i++){
+
 			var p = projectiles[i];
 
 			p.age += deltaTime;
-			//MOVE PROJECTILE
+
+			//#region MOVE PROJECTILE
 			if(!p.guided){
 				p.pos.x += Math.cos(p.rot) * p.speed * deltaTime;
 				p.pos.y += Math.sin(p.rot) * p.speed * deltaTime;
 			}
 			else {
 				rotateToTarget(p,p.target);
-				p.speed += 500 * deltaTime;
+				p.speed += 800 * deltaTime;
 				p.pos.x += Math.cos(p.rot) * p.speed * deltaTime;
 				p.pos.y += Math.sin(p.rot) * p.speed * deltaTime;
 				p.trail.update();
 				renderTrail(p.trail);
 			}
+			//#endregion
 
-			//KILL IF TOO OLD
+			//#region KILL IF TOO OLD
 			if(p.age > p.lifetime){
 				/*ctx.fillStyle="white";
 				ctx.beginPath();
@@ -678,8 +811,11 @@ function update() {
 				removeIDFromArray(projectiles,p.id);
 				continue;
 			}
+			//#endregion
 
-			//DRAW PROJECTILE
+			//#region DRAW PROJECTILE
+
+
 			ctx.save();
 			ctx.fillStyle=CSScolor(p.color);
 			rotateCtx(p.pos.x,p.pos.y,p.rot);
@@ -698,21 +834,29 @@ function update() {
 			}
 			ctx.restore();
 
-			//DETECT COLLISION
+
+			//#endregion
+
+			//#region DETECT COLLISION
 			for(var ii = 0; ii < players.length;ii++){
 				var player = players[ii];
-				if(player.hp > 0 && player != p.shooter){
+				if(player.hp > 0 && player.team != p.shooter.team){
 					if(p.pos.x < player.hitbox[1].x && p.pos.x > player.hitbox[0].x){
 						if(p.pos.y < player.hitbox[3].y && p.pos.y > player.hitbox[0].y){
 							player.hp -= 1;
+							if(player == localPlayer){
+								particles.push(new Particle(player.pos.x,player.pos.y,true,false,1,.12,10000,{r:230,g:20,b:0},.1));
+							}
 							if(player.hp <= 0){
+								player.hp = 0;
 								//PLAYER DEATH
 								createExplosion(p.pos.x,p.pos.y,20);
 								player.speed = 0;
 								/*player.pos.x=-2000;
 								player.pos.y=-2000;*/
-								if(player.ai){
+								if(player.team == 2){
 									enemyCount--;
+									score++;
 								}
 								removeIDFromArray(players,player.id);
 							}
@@ -721,9 +865,12 @@ function update() {
 						}
 					}
 				}
+			}
+			//#endregion
 		}
-		}
-		//EXPLOSIONS LOOP
+		//#endregion
+		
+		//#region EXPLOSIONS LOOP
 		for(var i = 0; i < explosions.length; i++){
 			var e = explosions[i];
 			e.age += deltaTime;
@@ -753,8 +900,55 @@ function update() {
 			ctx.restore();
 			*/
 		}
+		//#endregion
 
-		//DRAW HUD
+		//#region PARTICLES LOOP
+		for(var i = 0; i < particles.length; i++){
+			var p = particles[i];
+
+			p.age += deltaTime;
+			//KILL IF TOO OLD
+			if(p.age > p.lifetime){
+				/*ctx.fillStyle="white";
+				ctx.beginPath();
+				ctx.arc(p.pos.x, p.pos.y, 50, 0, 2 * Math.PI);
+				ctx.fill();*/
+				removeIDFromArray(particles,p.id);
+				continue;
+			}
+			
+			var lifetimeRatio = (p.age)/p.lifetime;
+			var tempOpacity = p.opacity;
+			var tempRadius = p.radius;
+			if(p.fadeSize){
+				tempRadius = p.radius * (1 + (lifetimeRatio * p.sizeFadeDirection));
+				if(tempRadius < 0){
+					console.log(p.radius, lifetimeRatio, p.age, p.lifetime);
+				}
+			}
+			if(p.fadeOpacity){
+				tempOpacity = p.opacity * (1-Math.abs(2*(lifetimeRatio-0.5)));
+			}
+
+			//DRAW PARTICLE
+
+			ctx.fillStyle=CSScolorAlpha(p.color,tempOpacity);
+			ctx.beginPath();
+			ctx.arc(p.pos.x, p.pos.y, tempRadius, 0, 2 * Math.PI);
+			ctx.fill();
+			
+			/*
+			ctx.save();
+			//ctx.fillStyle=CSScolor(p.color);
+			ctx.fillStyle="red";
+			rotateCtx(p.pos.x,p.pos.y,p.rot);
+			ctx.fillRect(p.pos.x-10,p.pos.y-2,20,4);
+			ctx.restore();
+			*/
+		}
+		//#endregion
+
+		//#region DRAW HUD
 
 		ctx.translate(lastPos.x,lastPos.y);
 
@@ -779,24 +973,32 @@ function update() {
 		*/
 
 
-		//DEATH SCREEN
+		//#region DEATH SCREEN
 		if(localPlayer.hp <= 0){
+			console.log("HP:", localPlayer.hp);
 			if(gameOverScreenTimeout <= 0){
 				ctx.fillStyle = CSScolor({r:0,g:0,b:0});
 				ctx.fillRect(0, 0, canvas.width, canvas.height);
 				ctx.fillStyle = CSScolor({r:80,g:80,b:80});
 				ctx.fillText("Game over. No restart button yet. Sorry.", canvas.width/2-190, canvas.height/2);
+				running = false;
 			}
 			else gameOverScreenTimeout -= deltaTime;
 
 		}
-
+		//#endregion
+		
+		//#endregion
 		
 		ctx.translate(-lastPos.x,-lastPos.y);
 		
 
 	}
 }
+//#endregion
+
+//#region GAME UTLITY FUNCTIONS
+
 
 function rotateToTarget(object,target){
 	if(Math.abs(object.rot)>Math.PI*2){
@@ -808,11 +1010,11 @@ function rotateToTarget(object,target){
 		targetRot = Math.sign(object.rot)*2*Math.PI + targetRot;
 		rotDiff = Math.abs(targetRot-object.rot);
 	}
-	if(Math.abs(targetRot-object.rot) <= object.rotationSpeed){
+	if(Math.abs(targetRot-object.rot) <= object.rotationSpeed*deltaTime){
 		object.rot = targetRot;
 	}
 	else {
-		object.rot += Math.sign(targetRot-object.rot) * object.rotationSpeed;
+		object.rot += Math.sign(targetRot-object.rot) * object.rotationSpeed*deltaTime;
 	}
 }
 
@@ -857,7 +1059,9 @@ function renderTrail(trail){
 	}
 }
 
+//#endregion
 
+//#region GENERAL UTILITY FUNCTIONS
 
 
 function gameStart() {
@@ -872,8 +1076,6 @@ function gameStart() {
 	
 	running = true;
 }
-
-
 
 
 
@@ -906,7 +1108,7 @@ function distancePos(a,b){
 }
 
 
-function detectCollision (a, b) {
+function detectCollision(a, b) {
     var polygons = [a, b];
     var minA, maxA, projected, i, i1, j, minB, maxB;
 
@@ -960,4 +1162,5 @@ function detectCollision (a, b) {
         }
     }
     return true;
-};
+}
+//#endregion
