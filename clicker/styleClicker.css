@@ -1,0 +1,106 @@
+body{
+    background:rgb(51, 51, 51);
+    font-family:Verdana, sans-serif;
+    color:white;
+    margin:0;
+    padding:0;
+    font-family:Montserrat,Verdana,sans-serif;
+}
+
+button{
+    font-family:inherit;
+    color: white;
+    background: rgb(32, 32, 32);
+    border: 5px rgb(160, 121, 70) solid;
+    padding:15px;
+    border-radius: 30px;
+    transition: color .1s, background-color .1s, border-color .3s;
+}
+button:active{
+    background: rgb(160, 121, 70);
+}
+
+button:focus {outline:0;}
+
+#gameContainer{
+    display:flex;
+    flex-direction: row;
+    height:100vh;
+    width:100vw;
+}
+
+#leftArea{
+    background-color:#635c81;
+    /*flex-grow:15;*/
+    width:50%;
+}
+#rightArea{
+    background-color:#58b37e;
+    /*flex-grow:15;*/
+    width:10%;
+}
+#centerArea{
+    background-color:#ca6c83;
+    /*flex-grow:10;*/
+    width:40%;
+}
+.area{
+    height:100%;
+    text-align:center;
+    overflow-y:auto;
+}
+.resources{
+    width:100%;
+    height:100px;
+    background-color:white;
+    margin-bottom:20px;
+    display:flex;
+    flex-direction: row;
+    color:black;
+}
+#rightArea > .resources {
+    flex-direction: column;
+    height:auto;
+}
+#rightArea > .resources > .resource {
+    height:80px;
+}
+.resource{
+    flex-grow:1;
+    display:flex;
+    align-items: center;
+    justify-content: center;
+    line-height:20px;
+    z-index:1;
+    position:relative;
+}
+
+.resource > div {
+    background:black;
+    width:20px;
+    height:20px;
+    border-radius:100%;
+    margin:10px;
+    flex-shrink:0;
+    z-index:1;
+}
+.resource > span {
+    z-index:1;
+}
+h1{
+    letter-spacing: .3em;
+}
+.resource > canvas {
+    position:absolute;
+    left:0;
+    top:0;
+    width:100%;
+    height:100%;
+    background-color:lightpink;
+    z-index:-1;
+}
+.resource > .resourceAmount {
+    text-align:left;
+    width:50px;
+    overflow:hidden;
+}

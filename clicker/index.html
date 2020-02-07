@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="stylesheet" href="styleClicker.css">
+        <meta charset="UTF-8">
+        <title>title</title>
+        <meta name="viewport" content="width=device-width, user-scalable=no">
+        <link href="https://fonts.googleapis.com/css?family=Montserrat&display=swap" rel="stylesheet">
+    </head>
+    <body>
+        <div id="gameContainer">
+            <div class="area" id="leftArea">
+                <h1>PLAYER 1</h1>
+                <div class="resources">
+                    <div class="resource">
+                        <div></div>
+                        <span>Wood</span>:&nbsp;<span class="resourceAmount">0</span>
+                        <canvas></canvas>
+                    </div>
+                    <div class="resource">
+                        <div></div>
+                        <span>Good</span>:&nbsp;<span class="resourceAmount">0</span>
+                        <canvas></canvas>
+                    </div>
+                    <div class="resource">
+                        <div></div>
+                        <span>Food</span>:&nbsp;<span class="resourceAmount">0</span>
+                        <canvas></canvas>
+                    </div>
+                </div>
+                <button onclick="collect(0)">Collect wood</button>
+                <button onclick="collect(1)">Collect good</button>
+                <button onclick="collect(2)">Collect food</button>
+                <button onclick="buy(0)">Buy wood</button>
+                <button onclick="buy(1)">Buy good</button>
+                <button onclick="buy(2)">Buy food</button>
+            </div>
+            <div class="area" id="centerArea">
+                
+                <h1>CENTER</h1>
+            </div>
+            <div class="area" id="rightArea">
+                <h1>PLAYER 2</h1>
+                <div class="resources">
+                    
+                </div>
+
+                <button>Collect stone</button>
+            </div>
+        </div>
+        <script src="clickerGame.js"></script>
+    </body>
+</html>
