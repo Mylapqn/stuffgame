@@ -32,7 +32,6 @@ function Trail(player){
 	this.lastUpdate = 0;
 	this.update = function(){
 		this.lastUpdate+=deltaTime;
-		console.log(this.lastUpdate, deltaTime);
 		if(this.lastUpdate >= this.updateInterval){
 			if(this.points.length < this.maxLength){
 				this.points.push(new TrailPoint(this.parent.pos.x,this.parent.pos.y, this.maxLength*this.updateInterval));
@@ -103,9 +102,30 @@ function Particle(x, y, fadeOpacity, fadeSize, fadeDirection, duration, radius, 
 	this.opacity = opacity;
 	this.color = color;
 }
+
+function Sound(src) {
+	this.sound = document.createElement("audio");
+	this.sound.src = src;
+	this.sound.setAttribute("preload", "auto");
+	this.sound.setAttribute("controls", "none");
+	this.sound.style.display = "none";
+	document.body.appendChild(this.sound);
+	this.play = function(volume){
+		this.sound.currentTime = 0;
+		this.sound.volume = volume;
+	  this.sound.play();
+	}
+	this.stop = function(){
+	  this.sound.pause();
+	}
+}
 //#endregion
 
 //#region INIT VARIABLES
+
+var soundExplosion = new Sound("sound/explosion.wav");
+var soundLaser = new Sound("sound/laser.wav");
+
 var frameIndex = 0;
 
 var projectiles = [];
@@ -126,6 +146,7 @@ console.log(playerImage);
 var gameArea = document.getElementById("gameArea");
 var canvas = document.getElementById("gameCanvas");
 var ctx = canvas.getContext("2d");
+
 
 var localPlayer = new Player(0);
 var players = [localPlayer];
@@ -197,6 +218,10 @@ gameStart();
 for(var i = 0; i < 3000; i++){
 	particles.push(new Particle(randomInt(-canvas.width*3,canvas.width*3),randomInt(-canvas.height*3,canvas.height*3),true,false,1,10,1,{r:255,g:255,b:255},randomFloat(0.2,1)));
 }
+
+
+
+
 
 //#endregion
 
@@ -297,7 +322,6 @@ function mouseUp(event) {
 
 //#region GAME FUNCTIONS
 
-
 function addAIPlayer(){
 	var p = new Player(players.length);
 	//p.id = players.length;
@@ -330,6 +354,7 @@ function createExplosion(x,y,size){
 	e.color = {r:randomInt(200,255),g:randomInt(40,200),b:randomInt(0,80)};
 	e.radius = 40 * size;
 	e.lifetime = 0.3 * Math.sqrt(size);
+	if(size > 1) soundExplosion.play(1);
 	while(size > 2){
 		createExplosion(x + randomInt(-100,100),y + randomInt(-100,100),randomFloat(0.5,2.5));
 		//setTimeout(function(){createExplosion(x + randomInt(-100,100),y + randomInt(-100,100),randomFloat(0.5,2.5));},randomInt(0,100));
@@ -367,6 +392,7 @@ function shootProjectile(shooter){
 	p.id = nextProjectileID;
 	nextProjectileID++;
 	p.lifetime = randomFloat(0.9,1,1);
+	soundLaser.play(.3);
 }
 
 function shootGuidedProjectile(shooter, target){
@@ -415,10 +441,12 @@ function shootAtTarget(shooter, target){
 	p.color = {r:255,g:0,b:0};
 	p.color = shooter.color;
 	p.lifetime = randomFloat(1.4,1.6);
-	if(p.lifetime >= timeToTarget)
-	p.id = projectiles.push(p)-1;
-	p.id = nextProjectileID;
-	nextProjectileID++;
+	if(p.lifetime >= timeToTarget){
+		p.id = projectiles.push(p)-1;
+		p.id = nextProjectileID;
+		nextProjectileID++;
+		soundLaser.play(.3);
+	}
 }
 
 //#endregion
@@ -925,7 +953,7 @@ function update() {
 			if(p.fadeSize){
 				tempRadius = p.radius * (1 + (lifetimeRatio * p.sizeFadeDirection));
 				if(tempRadius < 0){
-					console.log(p.radius, lifetimeRatio, p.age, p.lifetime);
+					console.log("Invalid particle radius:",p.radius, lifetimeRatio, p.age, p.lifetime);
 				}
 			}
 			if(p.fadeOpacity){
@@ -1059,7 +1087,7 @@ function renderTrail(trail){
 		ctx.stroke();
 	}
 	else {
-		console.log("sdawq");
+		console.log("Trail has no points");
 	}
 }
 
@@ -1160,7 +1188,7 @@ function detectCollision(a, b) {
             // if there is no overlap between the projects, the edge we are looking at separates the two
             // polygons, and we know there is no overlap
             if (maxA < minB || maxB < minA) {
-                CONSOLE("polygons don't intersect!");
+                console.log("polygons don't intersect!");
                 return false;
             }
         }
