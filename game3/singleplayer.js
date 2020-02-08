@@ -123,9 +123,6 @@ function Sound(src) {
 
 //#region INIT VARIABLES
 
-var running = false;
-var connection;
-
 var soundExplosion = new Sound("sound/explosion.wav");
 var soundLaser = new Sound("sound/laser.wav");
 
@@ -151,8 +148,11 @@ var canvas = document.getElementById("gameCanvas");
 var ctx = canvas.getContext("2d");
 
 
-var localPlayer;
-var players = [];
+var localPlayer = new Player(0);
+var players = [localPlayer];
+
+
+
 
 
 var loadingScreen = document.getElementById("loadingScreen");
@@ -174,7 +174,7 @@ var alternativeControls = false;
 var inertialDampening = true;
 
 var enemyCount = 0;
-var maxEnemyCount = 0;
+var maxEnemyCount = 3;
 var score = 0;
 
 
@@ -193,7 +193,7 @@ var enemyCooldown = .2;
 
 var enemySpawnTimer = 0;
 
-var maxVelocityMagnitude;
+var maxVelocityMagnitude = localPlayer.speed;
 var velocityMagnitude = 0;
 var velocityNormalised = {x:0,y:0};
 
@@ -206,11 +206,6 @@ var pointerDistance = 300;
 var zoom = 1;
 
 var hitboxSize = .5;
-
-var pingSendInterval = 1;
-var lastPingSent = 0;
-var pingTimeout = 0;
-var maxPingTimeout = 15;
 //#endregion
 
 //#region INIT FUNCTION CALLS
@@ -218,13 +213,13 @@ var maxPingTimeout = 15;
 
 setInterval(update, 1000 / fps);
 
-//gameStart();
+gameStart();
 
-/*for(var i = 0; i < 3000; i++){
+for(var i = 0; i < 3000; i++){
 	particles.push(new Particle(randomInt(-canvas.width*3,canvas.width*3),randomInt(-canvas.height*3,canvas.height*3),true,false,1,10,1,{r:255,g:255,b:255},randomFloat(0.2,1)));
-}*/
+}
 
-connect();
+
 
 
 
@@ -325,245 +320,28 @@ function mouseUp(event) {
 
 //#endregion
 
-//#region NETWORK FUNCTIONS
-
-function connect(){
-	connection = new WebSocket('wss://all-we-ever-want-is-indecision.herokuapp.com');
-	connection.onopen = onConnectionOpen;
-	connection.onmessage = onConnectionMessage;
-	connection.onclose = function(){
-		console.log("Connection closed, last ping sent " + lastPingSent + " s ago.");
-		connected = false;
-		running = false;
-		loadingScreen.style.display = "flex";
-		loadingScreen.style.animation = "startGame 1s cubic-bezier(0.9, 0, 0.7, 1) 0s 1 reverse both";
-		loadingScreen.style.animationPlayState = "running";
-		/*setTimeout(function () {
-			loadingScreen.style.animationPlayState = "paused";
-			removeAllPlayers();
-		}, 1000);*/
-	}
-}
-
-function onConnectionOpen(){
-	pingTimeout = 0;
-	console.log("Connection opened");
-	connected = true;
-}
-
-function onConnectionMessage(messageRaw) {
-	//console.log("message:" + messageRaw.data);
-	var message = JSON.parse(messageRaw.data);
-	if (message.type == "technical") {
-		if (message.subtype == "init") {
-			if (!running) {
-				console.log("Init message received");
-				//addPlayer(message.data);
-				localPlayer = addPlayer(false);
-				
-				maxVelocityMagnitude = localPlayer.speed;
-				console.log("Added Local Player with ID " + localPlayer.id);
-				/*sendPos();
-				sendColor();
-				sendSpeed();*/
-				sendPlayerData();
-				gameStart();
-				
-			}
-			if (message.data > 0) {
-				for (i = message.data - 1; i >= 0; i--) {
-					console.log("Adding previously present player: " + i + ", Current UserID: " + message.data);
-					var newP = addPlayer(false);
-					newP.id = i;
-					newP.id = i;
-				}
-			}
-		}
-		if (message.subtype == "newUser") {
-			if (message.data != localPlayer.id) {
-				console.log("New player: " + message.data + ", UserID: " + message.data);
-				var newPlayer = addPlayer(false);
-				
-				newPlayer.id = message.data;
-				newPlayer.team = message.data;
-				console.log("Assigned ID: " + newPlayer.id);
-
-				sendPos();
-				sendColor();
-				sendSpeed();
-			}
-		}
-		/*if (message.subtype == "leaveUser") {
-			if (message.data != userID) {
-				console.log("Leave player: " + message.data + ", UserID: " + userID);
-				removePlayer(message.data);
-			}
-		}*/
-		if (message.subtype == "userID") {
-			console.log("New local ID: "+message.data);
-			localPlayer.id = message.data;
-			localPlayer.team = message.data;
-		}
-		if(message.subtype == "ping"){
-			console.log("Received ping after " + pingTimeout + " s");
-			pingTimeout = 0;
-			if(message.requestReply){
-				//sendPing();
-				//Temporary: Disabled due to possible looping pings
-			}
-		}
-	}
-	if (message.type == "message") {
-		var messageContent = JSON.parse(message.data);
-		var messageData = JSON.parse(messageContent.data);
-		if (message.userID != localPlayer.id) {
-
-			player = findPlayerWithID(message.userID);
-			if (players != null) {
-				if (messageContent.type == "coordinates") {
-					player.pos = JSON.parse(messageData.pos);
-					player.rot = messageData.rot;
-					/*if (!players[playerIndex].initialised) {
-						players[playerIndex].oldPos.x = players[playerIndex].pos.x;
-						players[playerIndex].oldPos.y = players[playerIndex].pos.y;
-						players[playerIndex].initialised = true;
-					}*/
-				}
-				/*if (messageContent.type == "speed") {
-					players[playerIndex].speed = messageContent.data;
-				}*/
-				if (messageContent.type == "color") {
-					var receivedColor = JSON.parse(messageData.color);
-					player.color = receivedColor;
-					player.trail.color = player.color;
-				}
-				if (messageContent.type == "death") {
-					
-					player.hp = 0;
-					//PLAYER DEATH
-					createExplosion(player.pos.x,player.pos.y,20);
-					player.speed = 0;
-					console.log("team of dead: " + player.team + " team of local: " + localPlayer.team);
-					if(player.id != localPlayer.id){
-						score++;
-					}
-					removeIDFromArray(players,player.id);
-
-				}
-				if (messageContent.type == "hit") {
-					removeIDFromArray(projectiles,messageData.projectileID);
-					player.hp -= 1;
-					createExplosion(player.pos.x,player.pos.y,1);
-					console.log("team of hit: " + player.team + " team of local: " + localPlayer.team);
-
-				}
-				if (messageContent.type == "hp") {
-					player.hp = messageData.hp;
-					
-
-				}
-				
-			}
-
-		}
-		if (messageContent.type == "shoot") {
-			var shootPos = JSON.parse(messageData.pos);
-			var shooterID = messageData.shooter;
-			var shootSpeed = messageData.speed;
-			var shootRot = messageData.rot;
-			console.log("receiving shoot from ID " + shooterID);
-			spawnProjectile(shootPos,shootRot,shootSpeed,shooterID);
-		}
-	}
-
-	}
-
-function sendPos() {
-	connection.send(JSON.stringify({ type: "coordinates", data: JSON.stringify({pos:JSON.stringify(localPlayer.pos),rot:localPlayer.rot}) }));
-	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
-}
-
-function sendSpeed() {
-	connection.send(JSON.stringify({ type: "speed", data: JSON.stringify({speed:localPlayer.speed}) }));
-	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
-}
-
-function sendColor() {
-	connection.send(JSON.stringify({type: "color", data: JSON.stringify({color:JSON.stringify(localPlayer.color)}) }));
-	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
-}
-
-function sendPlayerData() {
-	sendPos();
-	sendSpeed();
-	sendColor();
-	sendHP();
-}
-
-function sendProjectile(pos,rot,speed,shooter) {
-	connection.send(JSON.stringify({ type: "shoot", data: JSON.stringify({pos:JSON.stringify(pos),rot:rot,speed:speed,shooter:shooter}) }));
-	console.log("sending shoot from ID " + shooter);
-}
-
-function sendDeath(id) {
-	connection.send(JSON.stringify({ type: "death", data: JSON.stringify({id:id}) }));
-	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
-}
-function sendHit(id,pid) {
-	connection.send(JSON.stringify({ type: "hit", data: JSON.stringify({id:id, projectileID:pid}) }));
-	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
-}
-function sendHP(){
-	connection.send(JSON.stringify({ type: "hp", data: JSON.stringify({hp:localPlayer.hp}) }));
-}
-
-function sendPing(){
-	pingTimeout+=trueDeltaTime;
-	lastPingSent+=trueDeltaTime;
-	//console.log("pingTimeout: " + pingTimeout);
-
-	if(connected && lastPingSent >= pingSendInterval) {
-		connection.send(JSON.stringify({type:"technical",subtype:"ping",requestReply:true}));
-		console.log("Sending ping after " + pingTimeout + " s");
-		lastPingSent = 0;
-
-		if(pingTimeout > maxPingTimeout){
-			console.log("Disconnecting after " + pingTimeout + " s of no response");
-			connection.close();
-		}
-	}
-
-	if(!connected && pingTimeout % 1 <= 0.1){
-		console.log("attempting new connection");
-		connect();
-	}
-}
-
-//#endregion
-
 //#region GAME FUNCTIONS
 
-function addPlayer(ai){
+function addAIPlayer(){
 	var p = new Player(players.length);
 	//p.id = players.length;
-	p.ai = ai;
-	if(ai){
-		p.color = {r:250,g:0,b:0};
-		p.speed = 400;
-		p.rotationSpeed = 3;
-		p.hp = 4;
-		console.log("Added AI player with ID" + p.id);
-		if(p.id == 1)
+	p.ai = true;
+	p.color = {r:250,g:0,b:0};
+	p.speed = 400;
+	p.rotationSpeed = 3;
+	p.hp = 4;
+	console.log("Added AI player with ID" + p.id);
+	if(p.id == 1)
 
-		p.color = {r:255,g:0,b:0};
+	p.color = {r:255,g:0,b:0};
 
-		else
+	else
 
-		p.color = {r:0,g:255,b:0};
-	}
-	p.color = {r:randomInt(0,255),g:randomInt(0,255),b:randomInt(0,255)}
+	p.color = {r:0,g:255,b:0};
 
 	p.trail.color = p.color;
+	p.pos.x=1000;
+	p.pos.y=1000;
 	players.push(p);
 	return p;
 }
@@ -599,8 +377,9 @@ function createParticle(x,y,size){
 	}
 }
 
+
 function shootProjectile(shooter){
-	/*var p = new Projectile(shooter);
+	var p = new Projectile(shooter);
 	p.pos.x=shooter.pos.x;
 	p.pos.y=shooter.pos.y;
 	p.rot=shooter.rot;
@@ -608,25 +387,6 @@ function shootProjectile(shooter){
 	
 
 	p.rot += (Math.random()*2 - 1)*p.randomSpread;
-	p.color = shooter.color;
-	p.id = projectiles.push(p)-1;
-	p.id = nextProjectileID;
-	nextProjectileID++;
-	p.lifetime = randomFloat(0.9,1,1);
-	soundLaser.play(.3);*/
-	sendProjectile(shooter.pos,shooter.rot,600,shooter.id);
-}
-
-function spawnProjectile(pos,rot,speed,shooterID){
-	var shooter = findPlayerWithID(shooterID);
-	var p = new Projectile(shooter);
-	p.pos.x=pos.x;
-	p.pos.y=pos.y;
-	p.rot=rot;
-
-	
-
-	//p.rot += (Math.random()*2 - 1)*p.randomSpread;
 	p.color = shooter.color;
 	p.id = projectiles.push(p)-1;
 	p.id = nextProjectileID;
@@ -699,13 +459,6 @@ function update() {
 		deltaTime = trueDeltaTime * timeMultiplier;
 		//TODO: DELTATIME
 		frameIndex++;
-
-		if(connected){
-			sendPing();
-			sendHP();
-			if(localPlayer.hp > 0)
-			sendPos();
-		}
 
 		//#region INIT
 		
@@ -869,7 +622,7 @@ function update() {
 		if(enemyCount < maxEnemyCount){
 			enemySpawnTimer+= deltaTime;
 			if(enemySpawnTimer > 5){
-				var aip = addPlayer(true);
+				var aip = addAIPlayer();
 				aip.team = 2;
 				enemyCount++;
 				enemySpawnTimer = 0;
@@ -891,13 +644,6 @@ function update() {
 		}
 		//#endregion
 		
-		//#region PLAYERS LOOP
-		for(var i = 0;i<players.length;i++){
-			var p = players[i];
-		}
-
-		//#endregion
-
 		//#region LOCAL SHOOTING
 
 
@@ -994,19 +740,6 @@ function update() {
 					
 					
 					//DRAW PLAYER
-
-					ctx.lineWidth = 3;
-					ctx.strokeStyle=CSScolorAlpha({r:255,g:255,b:255},.1);
-					ctx.beginPath();
-					ctx.arc(p.pos.x, p.pos.y,50,0,Math.PI*2);
-					ctx.stroke();
-					ctx.strokeStyle=CSScolorAlpha(p.color,.5);
-					ctx.beginPath();
-					ctx.arc(p.pos.x, p.pos.y,50,0,Math.PI*2 * (p.hp/10));
-					ctx.stroke();
-					ctx.fillStyle=CSScolorAlpha(p.color,.5);
-					ctx.fillText(p.id,p.pos.x-5,p.pos.y+80);
-
 					ctx.save();
 					ctx.translate(p.pos.x, p.pos.y);
 					ctx.rotate(p.rot);
@@ -1135,9 +868,6 @@ function update() {
 			//#endregion
 
 			//#region DETECT COLLISION
-
-			//#region SINGLEPLAYER VARIANT
-			/*
 			for(var ii = 0; ii < players.length;ii++){
 				var player = players[ii];
 				if(player.hp > 0 && player.team != p.shooter.team){
@@ -1152,6 +882,8 @@ function update() {
 								//PLAYER DEATH
 								createExplosion(p.pos.x,p.pos.y,20);
 								player.speed = 0;
+								/*player.pos.x=-2000;
+								player.pos.y=-2000;*/
 								if(player.team == 2){
 									enemyCount--;
 									score++;
@@ -1163,37 +895,6 @@ function update() {
 						}
 					}
 				}
-				*/
-				//#endregion
-
-				//MULTIPLAYER VARIANT
-					var player = localPlayer
-					if(player.hp > 0 && player.id != p.shooter.id){
-						if(p.pos.x < player.hitbox[1].x && p.pos.x > player.hitbox[0].x){
-							if(p.pos.y < player.hitbox[3].y && p.pos.y > player.hitbox[0].y){
-								player.hp -= 1;
-								if(player == localPlayer){
-									particles.push(new Particle(player.pos.x,player.pos.y,true,false,1,.12,10000,{r:230,g:20,b:0},.1));
-								}
-								sendHit(player.id, p.id);
-								if(player.hp <= 0){
-									player.hp = 0;
-									sendDeath(player.id);
-									//PLAYER DEATH
-									createExplosion(p.pos.x,p.pos.y,20);
-									player.speed = 0;
-									/*if(player.team == 2){
-										enemyCount--;
-										score++;
-									}*/
-									removeIDFromArray(players,player.id);
-								}
-								createExplosion(p.pos.x,p.pos.y,1);
-								removeIDFromArray(projectiles,p.id);
-							}
-						}
-					
-
 			}
 			//#endregion
 		}
@@ -1304,8 +1005,8 @@ function update() {
 
 		//#region DEATH SCREEN
 		if(localPlayer.hp <= 0){
+			console.log("HP:", localPlayer.hp);
 			if(gameOverScreenTimeout <= 0){
-				console.log("HP: ", localPlayer.hp);
 				ctx.fillStyle = CSScolor({r:0,g:0,b:0});
 				ctx.fillRect(0, 0, canvas.width, canvas.height);
 				ctx.fillStyle = CSScolor({r:80,g:80,b:80});
@@ -1368,17 +1069,6 @@ function removeIDFromArray(array,id){
 	}
 }
 
-
-function findPlayerWithID(playerID) {
-	for (var i = 0; i < players.length; i++) {
-		//console.log("Player index from id: scanning index " + i + " for ID " + playerID + ". Found ID: " + players[i].ID);
-		if (players[i].id == playerID) {
-			return players[i];
-		}
-	}
-	return null;
-}
-
 function renderTrail(trail){
 	if(trail.points.length > 0){
 		for(var t = 0; t < trail.points.length-1; t++){
@@ -1401,8 +1091,12 @@ function renderTrail(trail){
 	}
 }
 
+//#endregion
+
+//#region GENERAL UTILITY FUNCTIONS
+
+
 function gameStart() {
-	
 	console.log("Game start");
 
 	loadingScreen.style.animation = "startGame 1s cubic-bezier(0.3, 0, 0.1, 1) 0s 2 normal both";
@@ -1415,9 +1109,6 @@ function gameStart() {
 	running = true;
 }
 
-//#endregion
-
-//#region GENERAL UTILITY FUNCTIONS
 
 
 function invertColor(color) {
