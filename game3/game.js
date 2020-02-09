@@ -17,6 +17,7 @@ function Player(id) {
 	this.maxHp = 10;
 	this.trail=new Trail(this);
 	this.team = 1;
+	this.level = 0;
 };
 
 function Trail(player){
@@ -132,6 +133,7 @@ var connection;
 
 var soundExplosion = new Sound("sound/explosion.wav");
 var soundLaser = new Sound("sound/laser.wav");
+var soundHit = new Sound("sound/hit.ogg");
 
 var frameIndex = 0;
 
@@ -144,6 +146,9 @@ var nextExplosionID = 0;
 
 var playerHeight = 100;
 var playerWidth = 100;
+
+var backgroundImage = new Image();
+backgroundImage.src = "images/bg.png";
 
 var playerImage = [];
 var playerImageCount = 4;
@@ -262,7 +267,7 @@ document.addEventListener("keyup", keyUp, false);
 document.addEventListener("wheel", wheel, false);
 
 document.addEventListener('contextmenu', function(evt) { 
-	if(alternativeControls)evt.preventDefault();
+	if(!alternativeControls)evt.preventDefault();
   }, false);
 
 
@@ -304,7 +309,7 @@ function keyDown(event) {
 			shootingSecondary = true;
 		}
 		else if (key == "E") {
-			if(shooting && alternativeControls)  shooting = false;
+			if(shooting && !alternativeControls)  shooting = false;
 			alternativeControls = !alternativeControls;
 		}
 		else if (key == "Q") {
@@ -357,10 +362,10 @@ function keyUp(event) {
 function mouseDown(event) {
 	if(!menuOpen){
 		if(event.button == 0){
-			if(alternativeControls) shooting = true;
+			if(!alternativeControls) shooting = true;
 		}
 		if(event.button == 2){
-			if(alternativeControls) inputVelocity = 1;
+			if(!alternativeControls) inputVelocity = 1;
 		}
 	}
 
@@ -374,10 +379,10 @@ function mouseMove(event) {
 function mouseUp(event) {
 	if(!menuOpen){
 		if(event.button == 0){
-			if(alternativeControls) shooting = false;
+			if(!alternativeControls) shooting = false;
 		}
 		if(event.button == 2){
-			if(alternativeControls) inputVelocity = 0;
+			if(!alternativeControls) inputVelocity = 0;
 		}
 	}
 }
@@ -520,12 +525,14 @@ function onConnectionMessage(messageRaw) {
 					removeIDFromArray(projectiles,messageData.projectileID);
 					player.hp -= 1;
 					createExplosion(player.pos.x,player.pos.y,1);
+					soundHit.play(.15);
 					console.log("team of hit: " + player.team + " team of local: " + localPlayer.team);
 
 				}
 				if (messageContent.type == "hp") {
 					player.hp = messageData.hp;
 					player.maxHp = messageData.maxHp;
+					player.level = messageData.level;
 					
 
 				}
@@ -550,6 +557,8 @@ function onConnectionMessage(messageRaw) {
 	}
 
 	}
+
+//#region SEND FUNCTIONS
 
 function sendPos() {
 	connection.send(JSON.stringify({ type: "coordinates", data: JSON.stringify({pos:JSON.stringify(localPlayer.pos),rot:localPlayer.rot}) }));
@@ -588,7 +597,7 @@ function sendHit(id,pid) {
 	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
 }
 function sendHP(){
-	connection.send(JSON.stringify({ type: "hp", data: JSON.stringify({hp:localPlayer.hp,maxHp:localPlayer.maxHp}) }));
+	connection.send(JSON.stringify({ type: "hp", data: JSON.stringify({hp:localPlayer.hp,maxHp:localPlayer.maxHp,level:localPlayer.level}) }));
 }
 function sendName(){
 	connection.send(JSON.stringify({ type: "name", data: JSON.stringify({name:localPlayer.name}) }));
@@ -615,6 +624,7 @@ function sendPing(){
 		connect();
 	}
 }
+//#endregion
 
 //#endregion
 
@@ -784,15 +794,12 @@ function upgrade(){
 		maxCooldown*=.9;
 		localPlayer.maxHp++;
 		localPlayer.hp++;
+		localPlayer.level++;
 		scoreDisplay.innerHTML = score;
 		costDisplay.innerHTML = upgradeCost;
-		var pImg = playerImage[0];
-		if(localPlayer.maxHp > 10)
-			pImg = playerImage[1];
-		if(localPlayer.maxHp > 11)
-			pImg = playerImage[2];
-		if(localPlayer.maxHp > 12)
-			pImg = playerImage[3];
+		var pImg = playerImage[localPlayer.level];
+		if(localPlayer.level >= playerImageCount)
+		var pImg = playerImage[playerImageCount-1];
 		document.getElementById("shipImage").src=pImg.src;
 		//localPlayer.hp++;
 	}
@@ -920,8 +927,29 @@ function update() {
 			
 		//#endregion
 
+
 		ctx.scale(zoom,zoom);
 		ctx.translate(-lastPos.x,-lastPos.y);
+		var bgPos = []
+		bgPos[0] = screenToWorldCoords({x:0,y:0});
+		bgPos[1] = screenToWorldCoords({x:canvas.width,y:0});
+		bgPos[2] = screenToWorldCoords({x:canvas.width,y:canvas.height});
+		bgPos[3] = screenToWorldCoords({x:0,y:canvas.height});
+
+		ctx.fillStyle="red";
+		for(var b=0;b<4;b++){
+			ctx.fillRect(bgPos[b].x-5,bgPos[b].y-5,10,10);
+			bgPos[b].x -= bgPos[b].x % backgroundImage.width;
+			bgPos[b].y -= bgPos[b].y % backgroundImage.height;
+			ctx.fillRect(bgPos[b].x-5,bgPos[b].y-5,10,10);
+			ctx.drawImage(backgroundImage,bgPos[b].x,bgPos[b].y,backgroundImage.width,backgroundImage.height);
+		}
+		/*
+		bgPos.x -= bgPos.x % backgroundImage.width;
+		bgPos.x -= backgroundImage.width;
+		bgPos.y -= bgPos.y % backgroundImage.height;
+		bgPos.y -= backgroundImage.height;
+		ctx.drawImage(backgroundImage,bgPos.x,bgPos.y,backgroundImage.width*4,backgroundImage.height*4);*/
 
 		//#endregion
 
@@ -929,7 +957,7 @@ function update() {
 		
 		maxVelocityMagnitude = localPlayer.speed;
 
-		if(!alternativeControls){
+		if(alternativeControls){
 			localPlayer.rot += inputRotation * localPlayer.rotationSpeed * deltaTime;
 			if(inputVelocity != 0 && localPlayer.hp > 0){
 				localPlayer.velocity.x += Math.cos(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime * deltaTime;
@@ -1179,13 +1207,9 @@ function update() {
 					ctx.fillStyle=CSScolor(p.color);
 					//ctx.fillRect(0, 0, canvas.width, canvas.height);
 					//ctx.globalCompositeOperation="destination-in";
-					var pImg = playerImage[0];
-					if(p.maxHp > 10)
-						pImg = playerImage[1];
-					if(p.maxHp > 11)
-						pImg = playerImage[2];
-					if(p.maxHp > 12)
-						pImg = playerImage[3];
+					var pImg = playerImage[p.level];
+					if(p.level >= playerImageCount)
+					var pImg = playerImage[playerImageCount-1];
 					ctx.drawImage(pImg, p.pos.x - playerWidth/2, p.pos.y - playerHeight/2, playerWidth, playerHeight);
 					ctx.restore();
 					/*ctx.fillStyle = CSScolor(p.color);
@@ -1318,6 +1342,7 @@ function update() {
 							if(p.pos.x < player.hitbox[1].x && p.pos.x > player.hitbox[0].x){
 								if(p.pos.y < player.hitbox[3].y && p.pos.y > player.hitbox[0].y){
 									player.hp -= 1;
+									soundHit.play(.15);
 									if(player.hp <= 0){
 										player.hp = 0;
 										//PLAYER DEATH
@@ -1348,6 +1373,7 @@ function update() {
 									particles.push(new Particle(player.pos.x,player.pos.y,true,false,1,.12,10000,{r:230,g:20,b:0},.1));
 								}
 								sendHit(player.id, p.id);
+								soundHit.play(.2);
 								if(player.hp <= 0){
 									player.hp = 0;
 									sendDeath(player.id);
