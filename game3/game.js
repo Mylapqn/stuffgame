@@ -783,6 +783,7 @@ function upgrade(){
 		localPlayer.rotationSpeed += 0.5;
 		maxCooldown*=.9;
 		localPlayer.maxHp++;
+		localPlayer.hp++;
 		scoreDisplay.innerHTML = score;
 		costDisplay.innerHTML = upgradeCost;
 		var pImg = playerImage[0];
@@ -1103,8 +1104,8 @@ function update() {
 			}
 			}
 			if(weaponCooldown == 0){
-				localPlayer.hp += .3 * deltaTime;
-				if(localPlayer.hp > 10) localPlayer.hp = 10;
+				localPlayer.hp += .4 * deltaTime;
+				if(localPlayer.hp > localPlayer.maxHp) localPlayer.hp = localPlayer.maxHp;
 			}
 		}
 		//#endregion
