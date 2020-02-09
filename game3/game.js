@@ -2,6 +2,7 @@
 
 
 function Player(id) {
+	this.name="unnamed";
 	this.ai = false;
 	this.id = id;
 	this.pos = { x: 200, y: 200 };
@@ -13,6 +14,7 @@ function Player(id) {
 	this.color = { r: 100, g: 80, b: 200 };
 	this.hitbox = [];
 	this.hp = 10;
+	this.maxHp = 10;
 	this.trail=new Trail(this);
 	this.team = 1;
 };
@@ -77,6 +79,7 @@ function Projectile(shooter) {
 	this.randomSpread=.04;
 	this.rotationSpeed = 1;
 	this.trail = null;
+	this.damage = 1;
 }
 
 
@@ -215,6 +218,9 @@ var maxPingTimeout = 15;
 
 //#region INIT FUNCTION CALLS
 
+var playerName = getQueryVariable("name");
+var playerColor = JSON.parse(getQueryVariable("color"));
+
 
 setInterval(update, 1000 / fps);
 
@@ -232,10 +238,19 @@ connect();
 
 //#region INPUT
 
+var mousePos = {x:0,y:0};
+
+document.onmousemove = mouseMove;
+document.onmousedown = mouseDown;
+document.onmouseup = mouseUp;
 
 document.addEventListener("keydown", keyDown, false);
 document.addEventListener("keyup", keyUp, false);
 document.addEventListener("wheel", wheel, false);
+
+document.addEventListener('contextmenu', function(evt) { 
+	if(alternativeControls)evt.preventDefault();
+  }, false);
 
 
 
@@ -275,16 +290,17 @@ function keyDown(event) {
 		shootingSecondary = true;
 	}
 	else if (key == "E") {
+		if(shooting && alternativeControls)  shooting = false;
 		alternativeControls = !alternativeControls;
 	}
 	else if (key == "Q") {
 		inertialDampening = !inertialDampening;
 	}
-	else if (key == "F") {
+	/*else if (key == "F") {
 		slowMotion = !slowMotion;
 		if(slowMotion) timeMultiplier = 1/4;
 		else timeMultiplier = 1;
-	}
+	}*/
 }
 function keyUp(event) {
 	var key = event.key.toUpperCase();
@@ -313,14 +329,27 @@ function keyUp(event) {
 }
 
 function mouseDown(event) {
-	
+	if(event.button == 0){
+		if(alternativeControls) shooting = true;
+	}
+	if(event.button == 2){
+		if(alternativeControls) inputVelocity = 1;
+	}
 
 }
 function mouseMove(event) {
-	
+	mousePos.x = event.pageX;
+	mousePos.y = event.pageY;
 }
+
+
 function mouseUp(event) {
-	
+	if(event.button == 0){
+		if(alternativeControls) shooting = false;
+	}
+	if(event.button == 2){
+		if(alternativeControls) inputVelocity = 0;
+	}
 }
 
 //#endregion
@@ -360,6 +389,10 @@ function onConnectionMessage(messageRaw) {
 				console.log("Init message received");
 				//addPlayer(message.data);
 				localPlayer = addPlayer(false);
+				if(playerName)
+				localPlayer.name = playerName;
+				localPlayer.color = playerColor;
+				localPlayer.trail.color = playerColor;
 				
 				maxVelocityMagnitude = localPlayer.speed;
 				console.log("Added Local Player with ID " + localPlayer.id);
@@ -388,9 +421,7 @@ function onConnectionMessage(messageRaw) {
 				newPlayer.team = message.data;
 				console.log("Assigned ID: " + newPlayer.id);
 
-				sendPos();
-				sendColor();
-				sendSpeed();
+				sendPlayerData();
 			}
 		}
 		/*if (message.subtype == "leaveUser") {
@@ -459,6 +490,12 @@ function onConnectionMessage(messageRaw) {
 				}
 				if (messageContent.type == "hp") {
 					player.hp = messageData.hp;
+					player.maxHp = messageData.maxHp;
+					
+
+				}
+				if (messageContent.type == "name") {
+					player.name = messageData.name;
 					
 
 				}
@@ -471,8 +508,9 @@ function onConnectionMessage(messageRaw) {
 			var shooterID = messageData.shooter;
 			var shootSpeed = messageData.speed;
 			var shootRot = messageData.rot;
+			var damage = messageData.dmg;
 			console.log("receiving shoot from ID " + shooterID);
-			spawnProjectile(shootPos,shootRot,shootSpeed,shooterID);
+			spawnProjectile(shootPos,shootRot,shootSpeed,shooterID, damage);
 		}
 	}
 
@@ -498,10 +536,11 @@ function sendPlayerData() {
 	sendSpeed();
 	sendColor();
 	sendHP();
+	sendName();
 }
 
-function sendProjectile(pos,rot,speed,shooter) {
-	connection.send(JSON.stringify({ type: "shoot", data: JSON.stringify({pos:JSON.stringify(pos),rot:rot,speed:speed,shooter:shooter}) }));
+function sendProjectile(pos,rot,speed,shooter,dmg) {
+	connection.send(JSON.stringify({ type: "shoot", data: JSON.stringify({pos:JSON.stringify(pos),rot:rot,speed:speed,shooter:shooter,dmg:dmg}) }));
 	console.log("sending shoot from ID " + shooter);
 }
 
@@ -514,7 +553,10 @@ function sendHit(id,pid) {
 	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
 }
 function sendHP(){
-	connection.send(JSON.stringify({ type: "hp", data: JSON.stringify({hp:localPlayer.hp}) }));
+	connection.send(JSON.stringify({ type: "hp", data: JSON.stringify({hp:localPlayer.hp,maxHp:localPlayer.maxHp}) }));
+}
+function sendName(){
+	connection.send(JSON.stringify({ type: "name", data: JSON.stringify({name:localPlayer.name}) }));
 }
 
 function sendPing(){
@@ -547,24 +589,21 @@ function addPlayer(ai){
 	var p = new Player(players.length);
 	//p.id = players.length;
 	p.ai = ai;
+	p.color = {r:randomInt(50,255),g:randomInt(50,255),b:randomInt(50,255)};
+
+	
 	if(ai){
 		p.color = {r:250,g:0,b:0};
 		p.speed = 400;
 		p.rotationSpeed = 3;
 		p.hp = 4;
+		p.maxHp = 4;
+		p.name = "AI"
 		console.log("Added AI player with ID" + p.id);
-		if(p.id == 1)
-
-		p.color = {r:255,g:0,b:0};
-
-		else
-
-		p.color = {r:0,g:255,b:0};
 	}
-	p.color = {r:randomInt(0,255),g:randomInt(0,255),b:randomInt(0,255)}
-
 	p.trail.color = p.color;
 	players.push(p);
+	
 	return p;
 }
 
@@ -614,15 +653,16 @@ function shootProjectile(shooter){
 	nextProjectileID++;
 	p.lifetime = randomFloat(0.9,1,1);
 	soundLaser.play(.3);*/
-	sendProjectile(shooter.pos,shooter.rot,600,shooter.id);
+	sendProjectile(shooter.pos,shooter.rot,600,shooter.id,1);
 }
 
-function spawnProjectile(pos,rot,speed,shooterID){
+function spawnProjectile(pos,rot,speed,shooterID,dmg){
 	var shooter = findPlayerWithID(shooterID);
 	var p = new Projectile(shooter);
 	p.pos.x=pos.x;
 	p.pos.y=pos.y;
 	p.rot=rot;
+	p.damage = dmg;
 
 	
 
@@ -707,6 +747,8 @@ function update() {
 			sendPos();
 		}
 
+		mouseWorldPos = screenToWorldCoords(mousePos);
+
 		//#region INIT
 		
 		
@@ -721,39 +763,53 @@ function update() {
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 
 		ctx.fillStyle = CSScolor({r:19,g:22,b:25});
-		ctx.fillRect(0, 0, canvas.width, canvas.height);
+		ctx.fillRect(0,0,canvas.width,canvas.height);
+		
+		//AIMING CURSOR
+		/*ctx.strokeStyle = CSScolor({r:80,g:80,b:80});
+		ctx.beginPath();
+		ctx.arc(mousePos.x, mousePos.y,10,0,Math.PI*2);
+		ctx.stroke();
+		*/
+		ctx.font = "20px Century Gothic";
+		ctx.textAlign = "left";
+
+
+		ctx.fillStyle = CSScolor({r:80,g:80,b:80});
+
+		ctx.textAlign = "center";
 		//#region CONTROLS PROMPT
 			
-			ctx.font = "20px Century Gothic";
+			
 			if(!alternativeControls){
 				ctx.fillStyle = CSScolor({r:80,g:80,b:80});
-				ctx.fillText("press E for alternative controls", canvas.width/2-140, canvas.height - 300);
+				ctx.fillText("press E for alternative controls", canvas.width/2, canvas.height - 300);
 			}
 			else {
 				ctx.fillStyle = CSScolor({r:50,g:50,b:50});
-				ctx.fillText("press E for normal controls", canvas.width/2-123, canvas.height - 300);
+				ctx.fillText("press E for normal controls", canvas.width/2, canvas.height - 300);
 			}
 			if(inertialDampening){
 				ctx.fillStyle = CSScolor({r:80,g:80,b:80});
-				ctx.fillText("press Q to turn off inertial dampening", canvas.width/2-178, canvas.height - 260);
+				ctx.fillText("press Q to turn off inertial dampening", canvas.width/2, canvas.height - 260);
 				
 			}
 			else {
 				ctx.fillStyle = CSScolor({r:50,g:50,b:50});
-				ctx.fillText("press Q to turn on inertial dampening", canvas.width/2-178, canvas.height - 260);
+				ctx.fillText("press Q to turn on inertial dampening", canvas.width/2, canvas.height - 260);
 			}
 
-			if(slowMotion){
+			/*if(slowMotion){
 				ctx.fillStyle = CSScolor({r:80,g:80,b:80});
-				ctx.fillText("press F to stop paying respects", canvas.width/2-145, canvas.height - 220);
+				ctx.fillText("press F to stop paying respects", canvas.width/2, canvas.height - 220);
 				
 			}
 			else {
 				ctx.fillStyle = CSScolor({r:50,g:50,b:50});
-				ctx.fillText("press F to pay respects", canvas.width/2-110, canvas.height - 220);
-			}
+				ctx.fillText("press F to pay respects", canvas.width/2, canvas.height - 220);
+			}*/
 			ctx.fillStyle = CSScolor({r:80,g:80,b:80});
-				ctx.fillText("Kills: " + score, canvas.width/2-30, canvas.height - 180);
+				ctx.fillText("Kills: " + score, canvas.width/2, canvas.height - 220);
 
 			
 		//#endregion
@@ -783,7 +839,7 @@ function update() {
 			ctx.strokeStyle=CSScolor(localPlayer.color);
 
 			ctx.beginPath();
-			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(1.75 - 0.001 + 0.5 * (1-(localPlayer.hp / 10))),Math.PI *(0.25));
+			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(1.75 - 0.001 + 0.5 * (1-(localPlayer.hp / localPlayer.maxHp))),Math.PI *(0.25));
 			ctx.stroke();
 
 			//COOLDOWN
@@ -804,9 +860,9 @@ function update() {
 
 		//#region LOCAL PLAYER MOVEMENT
 		
-		localPlayer.rot += inputRotation * localPlayer.rotationSpeed * deltaTime;
-
+		
 		if(!alternativeControls){
+			localPlayer.rot += inputRotation * localPlayer.rotationSpeed * deltaTime;
 			if(inputVelocity != 0 && localPlayer.hp > 0){
 				localPlayer.velocity.x += Math.cos(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime * deltaTime;
 				localPlayer.velocity.y += Math.sin(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime * deltaTime;
@@ -831,6 +887,35 @@ function update() {
 
 		}
 		else {
+			rotateToTarget(localPlayer,{pos:mouseWorldPos});
+
+			if(inputVelocity != 0 && localPlayer.hp > 0){
+				localPlayer.velocity.x += Math.cos(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime * deltaTime;
+				localPlayer.velocity.y += Math.sin(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime * deltaTime;
+			}
+			if(inputRotation!= 0 && localPlayer.hp > 0){
+				localPlayer.velocity.x -= Math.sin(localPlayer.rot) * inputRotation * localPlayer.thrust * deltaTime * deltaTime;
+				localPlayer.velocity.y += Math.cos(localPlayer.rot) * inputRotation * localPlayer.thrust * deltaTime * deltaTime;
+			}
+			if (inputVelocity == 0 && inputRotation == 0 && inertialDampening) {
+				localPlayer.velocity.x *= 1 - .3 * deltaTime;
+				localPlayer.velocity.y *= 1 - .3 * deltaTime;
+			}
+			velocityMagnitude = Math.sqrt(Math.abs(Math.pow(localPlayer.velocity.x,2)+Math.pow(localPlayer.velocity.y,2)));
+			
+			if(Math.abs(velocityMagnitude) > maxVelocityMagnitude*deltaTime){
+				velocityNormalised.x = localPlayer.velocity.x / velocityMagnitude;
+				velocityNormalised.y = localPlayer.velocity.y / velocityMagnitude;
+				velocityMagnitude = Math.sign(velocityMagnitude) * maxVelocityMagnitude*deltaTime;
+				localPlayer.velocity.x = velocityNormalised.x * velocityMagnitude;
+				localPlayer.velocity.y = velocityNormalised.y * velocityMagnitude;
+				localPlayer.velocity.x = velocityNormalised.x * velocityMagnitude;
+				localPlayer.velocity.y = velocityNormalised.y * velocityMagnitude;
+			}
+			
+			
+
+			/*
 			velocityMagnitude = Math.sign(velocityMagnitude) * Math.sqrt(Math.abs(Math.pow(localPlayer.velocity.x,2)+Math.pow(localPlayer.velocity.y,2)));
 
 			if(inputVelocity != 0 && localPlayer.hp > 0){
@@ -851,6 +936,8 @@ function update() {
 
 			localPlayer.velocity.x = Math.cos(localPlayer.rot) * velocityMagnitude;
 			localPlayer.velocity.y = Math.sin(localPlayer.rot) * velocityMagnitude;
+			*/
+
 			
 		}
 
@@ -910,7 +997,15 @@ function update() {
 		if(localPlayer.hp > 0){
 			if(shooting){
 				if(weaponCooldown<=0){
+					//SHOOTING LAG MITIGATION
+					p.pos.x += 3 * p.velocity.x;
+					p.pos.y += 3 * p.velocity.y;
+
 					shootProjectile(localPlayer);
+
+					//SHOOTING LAG MITIGATION
+					p.pos.x -= 3 * p.velocity.x;
+					p.pos.y -= 3 * p.velocity.y;
 					weaponCooldown = maxCooldown;
 					cooldownStart = weaponCooldown;
 				}
@@ -1004,8 +1099,10 @@ function update() {
 					ctx.beginPath();
 					ctx.arc(p.pos.x, p.pos.y,50,0,Math.PI*2 * (p.hp/10));
 					ctx.stroke();
+
+					
 					ctx.fillStyle=CSScolorAlpha(p.color,.5);
-					ctx.fillText(p.id,p.pos.x-5,p.pos.y+80);
+					ctx.fillText(p.name,p.pos.x,p.pos.y+80);
 
 					ctx.save();
 					ctx.translate(p.pos.x, p.pos.y);
@@ -1019,14 +1116,14 @@ function update() {
 					/*ctx.fillStyle = CSScolor(p.color);
 					ctx.fillText(p.rot,p.pos.x,p.pos.y+30);*/
 					//DRAW SMOKE
-					if(p.hp <= 3){
-						if(p.hp <= 3 && p.hp >= 2 && frameIndex % 4 == 0){
+					if(p.hp <= p.maxHp/2){
+						if(p.hp <= p.maxHp/3 && p.hp >= p.maxHp/5 && frameIndex % 4 == 0){
 							particles.push(new Particle(p.pos.x+randomFloat(-15,15),p.pos.y+randomFloat(-15,15),true,true,-1,1,40,{r:0,g:0,b:0},.3));
 						}
-						if(p.hp <= 2 && frameIndex % 3 == 0){
+						if(p.hp <= p.maxHp/5 && frameIndex % 3 == 0){
 							particles.push(new Particle(p.pos.x+randomFloat(-15,15),p.pos.y+randomFloat(-15,15),true,true,-1,1.5,50,{r:0,g:0,b:0},1));
 						}
-						if(p.hp <= 1 && frameIndex % 5 == 0){
+						if(p.hp <= p.maxHp/10 && frameIndex % 5 == 0){
 							particles.push(new Particle(p.pos.x+randomFloat(-25,25),p.pos.y+randomFloat(-25,25),true,true,-1,1.2,10,{r:200,g:80,b:0},1));
 						}
 					}
@@ -1137,33 +1234,33 @@ function update() {
 			//#region DETECT COLLISION
 
 			//#region SINGLEPLAYER VARIANT
-			/*
-			for(var ii = 0; ii < players.length;ii++){
-				var player = players[ii];
-				if(player.hp > 0 && player.team != p.shooter.team){
-					if(p.pos.x < player.hitbox[1].x && p.pos.x > player.hitbox[0].x){
-						if(p.pos.y < player.hitbox[3].y && p.pos.y > player.hitbox[0].y){
-							player.hp -= 1;
-							if(player == localPlayer){
-								particles.push(new Particle(player.pos.x,player.pos.y,true,false,1,.12,10000,{r:230,g:20,b:0},.1));
-							}
-							if(player.hp <= 0){
-								player.hp = 0;
-								//PLAYER DEATH
-								createExplosion(p.pos.x,p.pos.y,20);
-								player.speed = 0;
-								if(player.team == 2){
-									enemyCount--;
-									score++;
+			
+			if(p.shooter == localPlayer){
+				for(var ii = 0; ii < players.length;ii++){
+					var player = players[ii];
+					if(player.ai){
+						if(player.hp > 0 && player.team != p.shooter.team){
+							if(p.pos.x < player.hitbox[1].x && p.pos.x > player.hitbox[0].x){
+								if(p.pos.y < player.hitbox[3].y && p.pos.y > player.hitbox[0].y){
+									player.hp -= 1;
+									if(player.hp <= 0){
+										player.hp = 0;
+										//PLAYER DEATH
+										createExplosion(p.pos.x,p.pos.y,20);
+										player.speed = 0;
+										enemyCount--;
+										score++;
+										removeIDFromArray(players,player.id);
+									}
+									createExplosion(p.pos.x,p.pos.y,1);
+									removeIDFromArray(projectiles,p.id);
 								}
-								removeIDFromArray(players,player.id);
 							}
-							createExplosion(p.pos.x,p.pos.y,1);
-							removeIDFromArray(projectiles,p.id);
 						}
 					}
 				}
-				*/
+			}
+				
 				//#endregion
 
 				//MULTIPLAYER VARIANT
@@ -1309,9 +1406,9 @@ function update() {
 				ctx.fillStyle = CSScolor({r:0,g:0,b:0});
 				ctx.fillRect(0, 0, canvas.width, canvas.height);
 				ctx.fillStyle = CSScolor({r:80,g:80,b:80});
-				ctx.fillText("Game over. No restart button yet. Sorry.", canvas.width/2-188, canvas.height/2);
+				ctx.fillText("Game over. No restart button yet. Sorry.", canvas.width/2, canvas.height/2);
 				ctx.fillStyle = CSScolor({r:80,g:80,b:80});
-				ctx.fillText("Score: " + score, canvas.width/2-30, canvas.height/2 + 40);
+				ctx.fillText("Score: " + score, canvas.width/2, canvas.height/2 + 40);
 				running = false;
 			}
 			else gameOverScreenTimeout -= deltaTime;
@@ -1330,6 +1427,16 @@ function update() {
 
 //#region GAME UTLITY FUNCTIONS
 
+function screenToWorldCoords(screenPos){
+	var worldPos = {x:screenPos.x,y:screenPos.y};
+	worldPos.x -= canvas.width/2;
+	worldPos.y -= canvas.height/2;
+	worldPos.x *= 1*1/zoom;
+	worldPos.y *= 1*1/zoom;
+	worldPos.x += localPlayer.pos.x;
+	worldPos.y += localPlayer.pos.y;
+	return worldPos;
+}
 
 function rotateToTarget(object,target){
 	if(Math.abs(object.rot)>Math.PI*2){
@@ -1420,6 +1527,7 @@ function gameStart() {
 //#region GENERAL UTILITY FUNCTIONS
 
 
+
 function invertColor(color) {
 	var inverted = {
 		r: 255 - color.r,
@@ -1503,5 +1611,16 @@ function detectCollision(a, b) {
         }
     }
     return true;
+}
+
+function getQueryVariable(variable)
+{
+       var query = window.location.search.substring(1);
+       var vars = query.split("&");
+       for (var i=0;i<vars.length;i++) {
+               var pair = vars[i].split("=");
+               if(pair[0] == variable){return decodeURI(pair[1]);}
+       }
+       return(false);
 }
 //#endregion

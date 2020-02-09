@@ -7,18 +7,157 @@
         <meta charset="UTF-8">
         <title>Stuff Game</title>
         <meta name="viewport" content="width=device-width, user-scalable=no">
+        <style>
+            #title{
+                position:absolute;
+                color:white;
+                font-size:1.5vw;
+                letter-spacing: .3em;
+                mix-blend-mode: difference;
+                top:5vh;
+                left: 0; 
+                right: 0; 
+                margin-left: auto; 
+                margin-right: auto; 
+                width:15vw;
+                text-align:center;
+                border:3px solid white;
+                padding-top:5px;
+                padding-bottom:5px;
+
+            }
+            #gameSelectionWrapper{
+                display:flex;
+                width:100vw;
+                height:100vh;
+                flex-direction: row;
+            }
+            .gameSelectionArea{
+                display:flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                align-items: center;
+                align-content: center;
+                background:rgb(100,80,30);
+                /*width:50vw;*/
+                flex-basis:10%;
+                flex-grow:1;
+                flex-shrink:1;
+                height:100vh;
+                transition:flex-grow .8s ease, letter-spacing .8s;
+                color:white;
+                font-size:3em;
+                letter-spacing: .3em;
+                
+            }
+            .gameSelectionArea:hover{
+                flex-grow:3;
+                flex-shrink:1;
+            }
+            a{
+                text-decoration:none;
+                /*color:white;
+                font-size:3em;
+                letter-spacing: .3em;*/
+                /*transition:letter-spacing 1s;*/
+            }
+            .gameSelectionIcon{
+                display:block;
+                flex-basis:200px;
+                width:200px;
+            }
+            .gameSelectionArea > p {
+                flex-basis:100%;
+                text-align:center;
+            }
+            #nameSelection{
+                background:rgb(207, 207, 207);
+                width:100%;
+                height:0px;
+                transition:height .8s;
+                display:flex;
+                overflow:hidden;
+                justify-content: center;
+                align-items: center;
+                flex-direction: column;
+
+            }
+            .gameSelectionArea:hover > #nameSelection {
+                height:300px;
+            }
+            #nameSelection input{
+                border:3px solid black;
+                background:none;
+                padding:20px;
+                width:400px;
+                font-family:inherit;
+                font-size:.5em;
+                letter-spacing: .1em;
+                font-weight: bold;
+                text-align:center;
+            }
+            #nameSelection button{
+                padding:20px;
+                margin-top:20px;
+                margin-bottom:20px;
+                border: none;
+                
+                font-family:inherit;
+                font-size:.5em;
+                letter-spacing: .5em;
+                font-weight: bold;
+                width:200px;
+                transition:background-color .3s, letter-spacing .3s, color .3s;
+            }
+            button:focus {
+                outline:0;
+            }
+            input:focus {
+                outline:0;
+            }
+            .inactiveButton {
+                background:rgb(207, 207, 207);
+            }
+            .activeButton{
+                background:rgb(228, 228, 228);
+            }
+            .activeButton:hover{
+                background:rgb(255, 255, 255);
+            }
+            #colorSelection{
+                padding:20px;
+                margin-top:20px;
+                margin-bottom:20px;
+                border: none;
+                
+                width:200px;
+                color:black;
+            }
+            #startGame{
+                margin-left:auto;
+            }
+        </style>
     </head>
     <body>
-    
-        <div id="loadingScreen">
-            <div id="loadingCircle"><div></div><span>CONNECTING</span></div>
-        </div>
-        <div id="gameArea">
-            <div id="joystick"><div id="joystickKnob"></div></div>
-            <canvas id="gameCanvas"></canvas>
-            <div id="userID">ID</div>
+        <div id="title">STUFFGAME</div>
+        <div id="gameSelectionWrapper">
+            <a href="singleplayer.html" class="gameSelectionArea" style="background:rgb(30, 31, 32);">
+                <img src="images/Singleplayer Icon.svg" class="gameSelectionIcon">
+                <p>SINGLEPLAYER</p>
+            </a>
+            <div class="gameSelectionArea" style="background:rgb(228, 228, 228); color: rgb(24, 24, 24);">
+                <img src="images/Multiplayer Icon.svg" class="gameSelectionIcon">
+                <p>MULTIPLAYER</p>
+                <div id="nameSelection">
+                    <input id="playerName" placeholder="PLAYER NAME">
+                    <div style="display:flex; width:446px;">
+                    <button id="colorSelection" onclick="newColor(this);">COLOR</button>
+                    <button id="startGame" class="inactiveButton" onclick="startGame(1);">START</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <script src="game.js"></script>
+        <script src="selection.js"></script>
     </body>
 </html>
