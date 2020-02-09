@@ -8,9 +8,22 @@
         <title>Stuff Game</title>
         <meta name="viewport" content="width=device-width, user-scalable=no">
         <style>
+            /*div{
+                border-radius: 10px;
+            }
+            a{
+                border-radius: 10px;
+            }*/
+            button{
+                border-radius: 4px;
+            }
+            input{
+                border-radius: 4px;
+            }
             #title{
+                border-radius: 4px;
                 position:absolute;
-                color:white;
+                color:black;
                 font-size:1.5vw;
                 letter-spacing: .3em;
                 mix-blend-mode: difference;
@@ -21,9 +34,10 @@
                 margin-right: auto; 
                 width:15vw;
                 text-align:center;
-                border:3px solid white;
+                /*border:3px solid white;*/
                 padding-top:5px;
                 padding-bottom:5px;
+                background-color: white;
 
             }
             #gameSelectionWrapper{
@@ -33,6 +47,8 @@
                 flex-direction: row;
             }
             .gameSelectionArea{
+                min-width: 0;
+                overflow: hidden;
                 display:flex;
                 flex-wrap: wrap;
                 justify-content: center;
@@ -44,8 +60,9 @@
                 flex-grow:1;
                 flex-shrink:1;
                 height:100vh;
-                transition:flex-grow .8s ease, letter-spacing .8s;
+                transition:flex-grow .8s ease;
                 color:white;
+                font-size:3vw;
                 font-size:3em;
                 letter-spacing: .3em;
                 
@@ -135,6 +152,12 @@
             }
             #startGame{
                 margin-left:auto;
+            }
+
+            @media screen and (max-width: 100em) {
+                .gameSelectionArea {
+                    font-size: 3vw;
+                }
             }
         </style>
     </head>

@@ -7,9 +7,84 @@
         <meta charset="UTF-8">
         <title>Stuff Game</title>
         <meta name="viewport" content="width=device-width, user-scalable=no">
+    <style>
+        :root{
+            --playerColor:blue;
+            --textColor:black;
+        }
+        body{
+            font-family:"Century Gothic",Montserrat, sans-serif;
+        }
+        #menu{
+            width:100vw;
+            height:100vh;
+            position:absolute;
+            top:0;
+            left:0;
+            z-index:10;
+            display:none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            background:none;
+        }
+        .menuBackground{
+            display:flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            width:50vw;
+            height:80vh;
+            background:black;
+            color:white;
+        }
+        button {
+            margin:15px;
+            padding:15px;
+            padding-left:30px;
+            padding-right:30px;
+            border:none;
+            font-family:inherit;
+            font-size: 1.5em;
+            letter-spacing: .2em;
+            background:white;
+            background:var(--playerColor);
+            color:black;
+            color:var(--textColor);
+        }
+        ul{
+            width:200px;
+            list-style: none;
+            margin-left: 0;
+            padding-left: 1em;
+            text-indent: -1em;
+        }
+    </style>
     </head>
     <body>
-    
+
+        <div id="menu">
+            <div class = "menuBackground">
+                <h1>SHOP</h1>
+                <span>Score: <span id="scoreDisplay">NaN</span></span>
+                <br>
+                <img src="images/player0.png" id="shipImage">
+                Next level:
+                <ul>
+                    <li>Max HP + 1</li>
+                    <li>Rotation speed + 0.5</li>
+                    <li>Main Weapon:
+                        <ul>
+                            <li>Shooting Speed + 10 %</li>
+                        </ul>
+                    </li>
+                </ul>
+                <span>Cost: <span id="costDisplay">NaN</span> score</span>
+                <button onclick="upgrade()">
+                    UPGRADE SHIP
+                </button>
+            </div>
+        </div>
         <div id="loadingScreen">
             <div id="loadingCircle"><div></div><span>CONNECTING</span></div>
         </div>
