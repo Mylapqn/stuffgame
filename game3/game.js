@@ -18,6 +18,11 @@ function Player(id) {
 	this.trail=new Trail(this);
 	this.team = 1;
 	this.level = 0;
+	this.size = 100;
+	this.energy=100;
+	this.maxEnergy=100;
+	this.energyRecharge=10;
+	this.shieldEnabled= true;
 };
 
 function Trail(player){
@@ -134,6 +139,7 @@ var connection;
 var soundExplosion = new Sound("sound/explosion.wav");
 var soundLaser = new Sound("sound/laser.wav");
 var soundHit = new Sound("sound/hit.ogg");
+var soundShieldHit = new Sound("sound/shieldHit.mp3");
 
 var frameIndex = 0;
 
@@ -150,8 +156,17 @@ var playerWidth = 100;
 var backgroundImage = new Image();
 backgroundImage.src = "images/bg.png";
 
+var shipName = [
+	"Training Ship",
+	"Fighter",
+	"Interceptor",
+	"Bomber",
+	"Gunship",
+	"Frigate"
+]
+
 var playerImage = [];
-var playerImageCount = 4;
+var playerImageCount = 6;
 
 for(var i = 0; i < playerImageCount;i++){
 	var img = new Image();
@@ -167,6 +182,8 @@ var ctx = canvas.getContext("2d");
 var menu = document.getElementById("menu");
 var scoreDisplay = document.getElementById("scoreDisplay");
 var costDisplay = document.getElementById("costDisplay");
+var shipNameDisplay = document.getElementById("shipNameDisplay");
+var nextShipNameDisplay = document.getElementById("nextShipNameDisplay");
 
 var menuOpen = false;
 
@@ -194,10 +211,13 @@ var shootingSecondary = false;
 var alternativeControls = false;
 var inertialDampening = true;
 
+var shieldEnabled = true;
+
 var enemyCount = 0;
 var maxEnemyCount = 0;
 var score = 0;
 
+var enemySpawnTimer = 0;
 
 var imageData;
 
@@ -212,7 +232,6 @@ var weaponCooldown = maxCooldown;
 
 var enemyCooldown = .2;
 
-var enemySpawnTimer = 0;
 
 var maxVelocityMagnitude;
 var velocityMagnitude = 0;
@@ -226,7 +245,7 @@ var pointerDistance = 300;
 
 var zoom = 1;
 
-var hitboxSize = .5;
+var hitboxSize = .7;
 
 var pingSendInterval = 1;
 var lastPingSent = 0;
@@ -315,6 +334,10 @@ function keyDown(event) {
 		else if (key == "Q") {
 			inertialDampening = !inertialDampening;
 		}
+		else if (key == "R") {
+			shieldEnabled = !shieldEnabled;
+			localPlayer.shieldEnabled = shieldEnabled;
+		}
 	}
 	if (key == "ESCAPE") {
 		menuOpen = !menuOpen;
@@ -322,6 +345,13 @@ function keyDown(event) {
 			menu.style.display="flex";
 			scoreDisplay.innerHTML = score;
 			costDisplay.innerHTML = upgradeCost;
+			if(localPlayer.level < playerImageCount){
+				shipNameDisplay.innerHTML = shipName[localPlayer.level];
+				if(localPlayer.level < playerImageCount-1){
+					nextShipNameDisplay.innerHTML = shipName[localPlayer.level+1];
+					document.getElementById("nextShipImage").src=playerImage[localPlayer.level+1].src;
+				}
+			}
 		}
 		else {
 			menu.style.display="none";
@@ -515,24 +545,38 @@ function onConnectionMessage(messageRaw) {
 					createExplosion(player.pos.x,player.pos.y,20);
 					player.speed = 0;
 					console.log("team of dead: " + player.team + " team of local: " + localPlayer.team);
-					if(player.id != localPlayer.id){
-						score++;
+					if(messageData.killer == localPlayer.id){
+						score+=player.level+1;
 					}
 					removeIDFromArray(players,player.id);
 
 				}
 				if (messageContent.type == "hit") {
 					removeIDFromArray(projectiles,messageData.projectileID);
-					player.hp -= 1;
+					if(messageData.shield){
+						soundShieldHit.play(.15);
+					}
+					else{
+						player.hp -= 1;
+						soundHit.play(.15);
+					}
 					createExplosion(player.pos.x,player.pos.y,1);
-					soundHit.play(.15);
 					console.log("team of hit: " + player.team + " team of local: " + localPlayer.team);
 
 				}
 				if (messageContent.type == "hp") {
 					player.hp = messageData.hp;
 					player.maxHp = messageData.maxHp;
+					player.energy = messageData.energy;
+					player.maxEnergy = messageData.maxEnergy;
+					player.shieldEnabled = messageData.shield;
+					//player.level = messageData.level;
+					
+
+				}
+				if (messageContent.type == "level") {
 					player.level = messageData.level;
+					player.size = messageData.size;
 					
 
 				}
@@ -581,6 +625,7 @@ function sendPlayerData() {
 	sendColor();
 	sendHP();
 	sendName();
+	sendLevel();
 }
 
 function sendProjectile(pos,rot,velocity,shooter,dmg) {
@@ -588,16 +633,19 @@ function sendProjectile(pos,rot,velocity,shooter,dmg) {
 	console.log("sending shoot from ID " + shooter);
 }
 
-function sendDeath(id) {
-	connection.send(JSON.stringify({ type: "death", data: JSON.stringify({id:id}) }));
+function sendDeath(id,killer) {
+	connection.send(JSON.stringify({ type: "death", data: JSON.stringify({id:id,killer:killer}) }));
 	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
 }
-function sendHit(id,pid) {
-	connection.send(JSON.stringify({ type: "hit", data: JSON.stringify({id:id, projectileID:pid}) }));
+function sendHit(id,pid,shield) {
+	connection.send(JSON.stringify({ type: "hit", data: JSON.stringify({id:id, projectileID:pid,shield:shield}) }));
 	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
 }
 function sendHP(){
-	connection.send(JSON.stringify({ type: "hp", data: JSON.stringify({hp:localPlayer.hp,maxHp:localPlayer.maxHp,level:localPlayer.level}) }));
+	connection.send(JSON.stringify({ type: "hp", data: JSON.stringify({hp:localPlayer.hp,maxHp:localPlayer.maxHp,energy:localPlayer.energy,maxEnergy:localPlayer.maxEnergy,shield:shieldEnabled}) }));
+}
+function sendLevel(){
+	connection.send(JSON.stringify({ type: "level", data: JSON.stringify({level:localPlayer.level,size:localPlayer.size}) }));
 }
 function sendName(){
 	connection.send(JSON.stringify({ type: "name", data: JSON.stringify({name:localPlayer.name}) }));
@@ -795,13 +843,25 @@ function upgrade(){
 		localPlayer.maxHp++;
 		localPlayer.hp++;
 		localPlayer.level++;
+		localPlayer.maxEnergy+=20;
+		localPlayer.energyRecharge+=2;
 		scoreDisplay.innerHTML = score;
 		costDisplay.innerHTML = upgradeCost;
+		if(localPlayer.level < playerImageCount){
+			shipNameDisplay.innerHTML = shipName[localPlayer.level];
+			if(localPlayer.level < playerImageCount-1){
+				nextShipNameDisplay.innerHTML = shipName[localPlayer.level+1];
+				document.getElementById("nextShipImage").src=playerImage[localPlayer.level+1].src;
+			}
+		}
 		var pImg = playerImage[localPlayer.level];
 		if(localPlayer.level >= playerImageCount)
 		var pImg = playerImage[playerImageCount-1];
 		document.getElementById("shipImage").src=pImg.src;
-		//localPlayer.hp++;
+		if(localPlayer.level >= 5){
+			localPlayer.size = 200;
+		}
+		sendLevel();
 	}
 }
 
@@ -880,7 +940,14 @@ function update() {
 				ctx.fillText("(ESC) shop", canvas.width/2, canvas.height - 180);
 				
 			}
-			else {
+			if(shieldEnabled){
+				ctx.fillStyle = CSScolor({r:80,g:80,b:80});
+				ctx.fillText("(R) turn off shields", canvas.width/2, canvas.height - 140);
+				
+			}
+			else{
+				ctx.fillStyle = CSScolor({r:50,g:50,b:50});
+				ctx.fillText("(R) turn on shields", canvas.width/2, canvas.height - 140);
 			}
 			ctx.fillStyle = CSScolor({r:80,g:80,b:80});
 				ctx.fillText("Kills: " + score, canvas.width/2, canvas.height - 220);
@@ -907,6 +974,9 @@ function update() {
 			ctx.beginPath();
 			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(0.75),Math.PI *(1.25));
 			ctx.stroke();
+			ctx.beginPath();
+			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 15,Math.PI*(0.75),Math.PI *(1.25));
+			ctx.stroke();
 
 			//HP
 
@@ -918,10 +988,16 @@ function update() {
 
 			//COOLDOWN
 
-			ctx.strokeStyle=CSScolor({r:180,g:80,b:30});
+			ctx.strokeStyle=CSScolor({r:180,g:30,b:30});
 
 			ctx.beginPath();
 			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(0.75),Math.PI *(1.25 -  0.5 * ((weaponCooldown / cooldownStart))));
+			ctx.stroke();
+
+			ctx.strokeStyle=CSScolor({r:170,g:110,b:40});
+
+			ctx.beginPath();
+			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 15,Math.PI*(0.75),Math.PI *(1.25 -  0.5 * (1-(localPlayer.energy / localPlayer.maxEnergy))));
 			ctx.stroke();
 			//#endregion
 			
@@ -930,15 +1006,24 @@ function update() {
 
 		ctx.scale(zoom,zoom);
 		ctx.translate(-lastPos.x,-lastPos.y);
-		var bgPos = []
+
+		ctx.lineWidth = 3;
+		ctx.strokeStyle=CSScolorAlpha({r:255,g:255,b:255},.1);
+		ctx.fillStyle=ctx.strokeStyle;
+		ctx.beginPath();
+		ctx.arc(200, 200,100,0,Math.PI*2);
+		ctx.arc(200, 200,110,0,Math.PI*2);
+		ctx.stroke();
+		ctx.fillText("SPAWN",200,210);
+
+		var bgPos = [];
 		bgPos[0] = screenToWorldCoords({x:0,y:0});
 		bgPos[1] = screenToWorldCoords({x:canvas.width,y:0});
 		bgPos[2] = screenToWorldCoords({x:canvas.width,y:canvas.height});
 		bgPos[3] = screenToWorldCoords({x:0,y:canvas.height});
 
-		ctx.fillStyle="red";
+		ctx.fillStyle="gray";
 		for(var b=0;b<4;b++){
-			ctx.fillRect(bgPos[b].x-5,bgPos[b].y-5,10,10);
 			bgPos[b].x -= bgPos[b].x % backgroundImage.width;
 			bgPos[b].y -= bgPos[b].y % backgroundImage.height;
 			ctx.fillRect(bgPos[b].x-5,bgPos[b].y-5,10,10);
@@ -1070,7 +1155,7 @@ function update() {
 			p.pos.x += p.velocity.x;
 			p.pos.y += p.velocity.y;
 
-			p.hitbox = [{x:p.pos.x-hitboxSize*playerWidth/2,y:p.pos.y-hitboxSize*playerHeight/2},{x:p.pos.x+hitboxSize*playerWidth/2,y:p.pos.y-hitboxSize*playerHeight/2},{x:p.pos.x+hitboxSize*playerWidth/2,y:p.pos.y+hitboxSize*playerHeight/2},{x:p.pos.x-hitboxSize*playerWidth/2,y:p.pos.y+hitboxSize*playerHeight/2}]
+			p.hitbox = [{x:p.pos.x-hitboxSize*p.size/2,y:p.pos.y-hitboxSize*p.size/2},{x:p.pos.x+hitboxSize*p.size/2,y:p.pos.y-hitboxSize*p.size/2},{x:p.pos.x+hitboxSize*p.size/2,y:p.pos.y+hitboxSize*p.size/2},{x:p.pos.x-hitboxSize*p.size/2,y:p.pos.y+hitboxSize*p.size/2}]
 		}
 		//#endregion
 		
@@ -1092,14 +1177,16 @@ function update() {
 
 		if(localPlayer.hp > 0){
 			if(shooting){
-				if(weaponCooldown<=0){
+				if(weaponCooldown<=0 && localPlayer.energy >= 5){
 					//SHOOTING LAG MITIGATION
 					p.pos.x += 3 * p.velocity.x;
 					p.pos.y += 3 * p.velocity.y;
-
+					
 					shootProjectile(localPlayer);
-
+					
 					//SHOOTING LAG MITIGATION
+
+					localPlayer.energy-=5;
 					p.pos.x -= 3 * p.velocity.x;
 					p.pos.y -= 3 * p.velocity.y;
 					weaponCooldown = maxCooldown;
@@ -1132,7 +1219,9 @@ function update() {
 			}
 			}
 			if(weaponCooldown == 0){
-				localPlayer.hp += .4 * deltaTime;
+				localPlayer.energy+= localPlayer.energyRecharge*deltaTime;
+				if(localPlayer.energy > localPlayer.maxEnergy) localPlayer.energy = localPlayer.maxEnergy;
+				localPlayer.hp += .1 * deltaTime;
 				if(localPlayer.hp > localPlayer.maxHp) localPlayer.hp = localPlayer.maxHp;
 			}
 		}
@@ -1189,16 +1278,18 @@ function update() {
 					ctx.lineWidth = 3;
 					ctx.strokeStyle=CSScolorAlpha({r:255,g:255,b:255},.1);
 					ctx.beginPath();
-					ctx.arc(p.pos.x, p.pos.y,50,0,Math.PI*2);
+					ctx.arc(p.pos.x, p.pos.y,p.size/2,0,Math.PI*2);
 					ctx.stroke();
 					ctx.strokeStyle=CSScolorAlpha(p.color,.5);
 					ctx.beginPath();
-					ctx.arc(p.pos.x, p.pos.y,50,0,Math.PI*2 * (p.hp/p.maxHp));
+					ctx.arc(p.pos.x, p.pos.y,p.size/2,0,Math.PI*2 * (p.hp/p.maxHp));
 					ctx.stroke();
 
 					
+
+					
 					ctx.fillStyle=CSScolorAlpha(p.color,.5);
-					ctx.fillText(p.name,p.pos.x,p.pos.y+80);
+					ctx.fillText(p.name,p.pos.x,p.pos.y+(p.size*.5)+30);
 
 					ctx.save();
 					ctx.translate(p.pos.x, p.pos.y);
@@ -1210,8 +1301,21 @@ function update() {
 					var pImg = playerImage[p.level];
 					if(p.level >= playerImageCount)
 					var pImg = playerImage[playerImageCount-1];
-					ctx.drawImage(pImg, p.pos.x - playerWidth/2, p.pos.y - playerHeight/2, playerWidth, playerHeight);
+					ctx.drawImage(pImg, p.pos.x - p.size/2, p.pos.y - p.size/2, p.size, p.size);
 					ctx.restore();
+
+					if(p.shieldEnabled){
+
+						var shieldColor = {r:30,g:150,b:200}
+						ctx.lineWidth = 3 * (p.energy/p.maxEnergy);
+						ctx.strokeStyle=CSScolorAlpha(shieldColor,.8 * (p.energy/p.maxEnergy));
+						ctx.fillStyle=CSScolorAlpha(shieldColor,.2 * (p.energy/p.maxEnergy));
+						ctx.beginPath();
+						ctx.arc(p.pos.x, p.pos.y,p.size/2 + 10,0,Math.PI*2);
+						ctx.stroke();
+						ctx.fill();
+					}
+
 					/*ctx.fillStyle = CSScolor(p.color);
 					ctx.fillText(p.rot,p.pos.x,p.pos.y+30);*/
 					//DRAW SMOKE
@@ -1254,8 +1358,9 @@ function update() {
 		//#endregion
 
 		//#region DRAW HITBOXES
-		{
 		/*
+		{
+		
 		ctx.strokeStyle="red";
 		ctx.lineWidth = 1;
 		ctx.beginPath();
@@ -1268,8 +1373,8 @@ function update() {
 		}
 		ctx.closePath();
 		ctx.stroke();
-		*/
-		}
+		
+		}*/
 		//#endregion
 
 		//#region PROJECTILES LOOP
@@ -1368,15 +1473,24 @@ function update() {
 					if(player.hp > 0 && player.id != p.shooter.id){
 						if(p.pos.x < player.hitbox[1].x && p.pos.x > player.hitbox[0].x){
 							if(p.pos.y < player.hitbox[3].y && p.pos.y > player.hitbox[0].y){
-								player.hp -= 1;
+								if(shieldEnabled && player.energy >= 20){
+									player.energy-=20;
+									soundShieldHit.play(.2);
+									sendHit(player.id, p.id,true);
+									/*weaponCooldown=.5;
+									cooldownStart=.5;*/
+								}
+								else{
+									player.hp -= 1;
+									soundHit.play(.2);
+									sendHit(player.id, p.id,false);
+								}
 								if(player == localPlayer){
 									particles.push(new Particle(player.pos.x,player.pos.y,true,false,1,.12,10000,{r:230,g:20,b:0},.1));
 								}
-								sendHit(player.id, p.id);
-								soundHit.play(.2);
 								if(player.hp <= 0){
 									player.hp = 0;
-									sendDeath(player.id);
+									sendDeath(player.id,p.shooter.id);
 									//PLAYER DEATH
 									createExplosion(p.pos.x,p.pos.y,20);
 									player.speed = 0;

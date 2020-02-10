@@ -68,14 +68,21 @@
                 <h1>SHOP</h1>
                 <span>Score: <span id="scoreDisplay">NaN</span></span>
                 <br>
-                <img src="images/player0.png" id="shipImage">
-                Next level:
+                <div style="display:flex;flex-direction:row;align-items:center;font-size:5em;"><img src="images/player0.png" id="shipImage" style="width:256px;"> 🡆 <img src="images/player0.png" id="nextShipImage" style="width:256px;opacity:.5;"></div>
+                <span>Current ship: <span style="color:var(--playerColor)" id="shipNameDisplay">unknown</span>
+                &nbsp;Next level: <span style="color:var(--playerColor)" id="nextShipNameDisplay">unknown</span></span>
                 <ul>
                     <li>Max HP + 1</li>
                     <li>Rotation speed + 0.5</li>
                     <li>Main Weapon:
                         <ul>
                             <li>Shooting Speed + 10 %</li>
+                        </ul>
+                    </li>
+                    <li>Ship Reactor:
+                        <ul>
+                            <li>Energy Capacity + 20</li>
+                            <li>Energy Recharge + 2/s</li>
                         </ul>
                     </li>
                 </ul>
