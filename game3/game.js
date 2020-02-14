@@ -886,7 +886,7 @@ function update() {
 		if(frameIndex == 0) lastFrame = Date.now();
 		trueDeltaTime=(Date.now()-lastFrame)/1000;
 
-		//trueDeltaTime = 1/60;
+		trueDeltaTime = 1/60;
 
 		deltaTime = trueDeltaTime * timeMultiplier;
 
