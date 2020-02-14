@@ -469,16 +469,24 @@ function onConnectionMessage(messageRaw) {
 				/*sendPos();
 				sendColor();
 				sendSpeed();*/
-				sendPlayerData();
-				gameStart();
+				
+				
 				
 			}
-			if (message.data > 0) {
-				for (i = message.data - 1; i >= 0; i--) {
-					console.log("Adding previously present player: " + i + ", Current UserID: " + message.data);
-					var newP = addPlayer(false);
-					newP.id = i;
-					newP.id = i;
+		}
+		if(message.subtype == "start"){
+			sendPlayerData();
+			gameStart();
+		}
+		if(message.subtype=="playerIDs"){
+			console.log("PlayerIDs message. Content: " + message.data);
+			if (message.data.length > 1) {
+				for (i = 0; i < message.data.length; i++) {
+					if(message.data[i] != localPlayer.id){
+						console.log("Adding previously present player with UserID: " + message.data[i]);
+						var newP = addPlayer(false);
+						newP.id = message.data[i];
+					}
 				}
 			}
 		}
@@ -494,12 +502,13 @@ function onConnectionMessage(messageRaw) {
 				sendPlayerData();
 			}
 		}
-		/*if (message.subtype == "leaveUser") {
+		if (message.subtype == "leaveUser") {
 			if (message.data != userID) {
 				console.log("Leave player: " + message.data + ", UserID: " + userID);
-				removePlayer(message.data);
+				//removePlayer(message.data);
+				removeIDFromArray(message.data);
 			}
-		}*/
+		}
 		if (message.subtype == "userID") {
 			console.log("New local ID: "+message.data);
 			localPlayer.id = message.data;
