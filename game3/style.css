@@ -1,6 +1,11 @@
 :root{
     --c:black;
 }
+@font-face {
+    font-family: 'Century Gothic';
+    font-style: normal;
+    src: url("font/Century Gothic.ttf");
+  }
 body {
     padding:0;
     margin:0;
