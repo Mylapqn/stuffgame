@@ -154,7 +154,7 @@ var playerHeight = 100;
 var playerWidth = 100;
 
 var backgroundImage = new Image();
-backgroundImage.src = "images/bg.png";
+backgroundImage.src = "images/bg2.png";
 
 var shipName = [
 	"Training Ship",
