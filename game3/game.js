@@ -133,6 +133,8 @@ function Sound(src) {
 
 //#region INIT VARIABLES
 
+
+
 var running = false;
 var connection;
 
@@ -142,6 +144,8 @@ var soundHit = new Sound("sound/hit.ogg");
 var soundShieldHit = new Sound("sound/shieldHit.mp3");
 
 var frameIndex = 0;
+
+var lastFrame = 0;
 
 var projectiles = [];
 var explosions = [];
@@ -479,13 +483,14 @@ function onConnectionMessage(messageRaw) {
 			gameStart();
 		}
 		if(message.subtype=="playerIDs"){
+			var ids = message.data.split(',');
 			console.log("PlayerIDs message. Content: " + message.data);
-			if (message.data.length > 1) {
-				for (i = 0; i < message.data.length; i++) {
-					if(message.data[i] != localPlayer.id){
-						console.log("Adding previously present player with UserID: " + message.data[i]);
+			if (ids.length > 1) {
+				for (i = 0; i < ids.length; i++) {
+					if(ids[i] != localPlayer.id){
+						console.log("Adding previously present player with UserID: " + ids[i]);
 						var newP = addPlayer(false);
-						newP.id = message.data[i];
+						newP.id = ids[i];
 					}
 				}
 			}
@@ -503,10 +508,10 @@ function onConnectionMessage(messageRaw) {
 			}
 		}
 		if (message.subtype == "leaveUser") {
-			if (message.data != userID) {
-				console.log("Leave player: " + message.data + ", UserID: " + userID);
+			if (message.data != localPlayer.id) {
+				console.log("Leave player: " + message.data + ", UserID: " + localPlayer.id);
 				//removePlayer(message.data);
-				removeIDFromArray(message.data);
+				removeIDFromArray(players,message.data);
 			}
 		}
 		if (message.subtype == "userID") {
@@ -758,8 +763,6 @@ function shootProjectile(shooter){
 
 	var pv = {x:shooter.velocity.x,y:shooter.velocity.y};
 	if(shooter.ai) console.log("pv",pv);
-	pv.x /= deltaTime;
-	pv.y /= deltaTime;
 
 	pv.x += Math.cos(shooter.rot) * 1500;
 	pv.y += Math.sin(shooter.rot) * 1500;
@@ -880,8 +883,14 @@ function upgrade(){
 function update() {
 	if (running) {
 		//TODO: DELTATIME
-		trueDeltaTime=trueDeltaTime;
+		if(frameIndex == 0) lastFrame = Date.now();
+		trueDeltaTime=(Date.now()-lastFrame)/1000;
+
+		//trueDeltaTime = 1/60;
+
 		deltaTime = trueDeltaTime * timeMultiplier;
+
+		lastFrame = Date.now();
 		//TODO: DELTATIME
 		frameIndex++;
 
@@ -909,6 +918,10 @@ function update() {
 
 		ctx.fillStyle = CSScolor({r:19,g:22,b:25});
 		ctx.fillRect(0,0,canvas.width,canvas.height);
+
+		ctx.fillStyle="white";
+		ctx.textAlign="left";
+		ctx.fillText("Delta: " + trueDeltaTime.toFixed(3) + " FPS: " + (1/trueDeltaTime).toFixed(2),30,30);
 		
 		//AIMING CURSOR
 		/*ctx.strokeStyle = CSScolor({r:80,g:80,b:80});
@@ -973,7 +986,7 @@ function update() {
 			ctx.stroke();
 			ctx.strokeStyle=CSScolorAlpha({r:255,g:255,b:255},.2);
 			ctx.beginPath();
-			ctx.arc(canvas.width/2 + localPlayer.velocity.x * pointerDistance / deltaTime / 900, canvas.height/2  + localPlayer.velocity.y * pointerDistance / deltaTime / 900,5,0,Math.PI*2);
+			ctx.arc(canvas.width/2 + localPlayer.velocity.x * pointerDistance / 900, canvas.height/2  + localPlayer.velocity.y * pointerDistance / 900,5,0,Math.PI*2);
 			ctx.stroke();
 
 		//#region GAUGES
@@ -1069,8 +1082,8 @@ function update() {
 		if(alternativeControls){
 			localPlayer.rot += inputRotation * localPlayer.rotationSpeed * deltaTime;
 			if(inputVelocity != 0 && localPlayer.hp > 0){
-				localPlayer.velocity.x += Math.cos(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime * deltaTime;
-				localPlayer.velocity.y += Math.sin(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime * deltaTime;
+				localPlayer.velocity.x += Math.cos(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
+				localPlayer.velocity.y += Math.sin(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
 			}
 			else if (inertialDampening) {
 				localPlayer.velocity.x *= 1 - .3 * deltaTime;
@@ -1078,10 +1091,10 @@ function update() {
 			}
 			velocityMagnitude = Math.sqrt(Math.abs(Math.pow(localPlayer.velocity.x,2)+Math.pow(localPlayer.velocity.y,2)));
 
-			if(Math.abs(velocityMagnitude) > maxVelocityMagnitude*deltaTime){
+			if(Math.abs(velocityMagnitude) > maxVelocityMagnitude){
 				velocityNormalised.x = localPlayer.velocity.x / velocityMagnitude;
 				velocityNormalised.y = localPlayer.velocity.y / velocityMagnitude;
-				velocityMagnitude = Math.sign(velocityMagnitude) * maxVelocityMagnitude*deltaTime;
+				velocityMagnitude = Math.sign(velocityMagnitude) * maxVelocityMagnitude;
 				localPlayer.velocity.x = velocityNormalised.x * velocityMagnitude;
 				localPlayer.velocity.y = velocityNormalised.y * velocityMagnitude;
 				localPlayer.velocity.x = velocityNormalised.x * velocityMagnitude;
@@ -1095,23 +1108,23 @@ function update() {
 			rotateToTarget(localPlayer,{pos:mouseWorldPos});
 
 			if(inputVelocity != 0 && localPlayer.hp > 0){
-				localPlayer.velocity.x += Math.cos(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime * deltaTime;
-				localPlayer.velocity.y += Math.sin(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime * deltaTime;
+				localPlayer.velocity.x += Math.cos(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
+				localPlayer.velocity.y += Math.sin(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
 			}
 			if(inputRotation!= 0 && localPlayer.hp > 0){
-				localPlayer.velocity.x -= Math.sin(localPlayer.rot) * inputRotation * localPlayer.thrust * deltaTime * deltaTime;
-				localPlayer.velocity.y += Math.cos(localPlayer.rot) * inputRotation * localPlayer.thrust * deltaTime * deltaTime;
+				localPlayer.velocity.x -= Math.sin(localPlayer.rot) * inputRotation * localPlayer.thrust * deltaTime;
+				localPlayer.velocity.y += Math.cos(localPlayer.rot) * inputRotation * localPlayer.thrust * deltaTime;
 			}
 			if (inputVelocity == 0 && inputRotation == 0 && inertialDampening) {
-				localPlayer.velocity.x *= 1 - .3 * deltaTime;
-				localPlayer.velocity.y *= 1 - .3 * deltaTime;
+				localPlayer.velocity.x *= 1 - .5 * deltaTime;
+				localPlayer.velocity.y *= 1 - .5 * deltaTime;
 			}
 			velocityMagnitude = Math.sqrt(Math.abs(Math.pow(localPlayer.velocity.x,2)+Math.pow(localPlayer.velocity.y,2)));
 			
-			if(Math.abs(velocityMagnitude) > maxVelocityMagnitude*deltaTime){
+			if(Math.abs(velocityMagnitude) > maxVelocityMagnitude){
 				velocityNormalised.x = localPlayer.velocity.x / velocityMagnitude;
 				velocityNormalised.y = localPlayer.velocity.y / velocityMagnitude;
-				velocityMagnitude = Math.sign(velocityMagnitude) * maxVelocityMagnitude*deltaTime;
+				velocityMagnitude = Math.sign(velocityMagnitude) * maxVelocityMagnitude;
 				localPlayer.velocity.x = velocityNormalised.x * velocityMagnitude;
 				localPlayer.velocity.y = velocityNormalised.y * velocityMagnitude;
 				localPlayer.velocity.x = velocityNormalised.x * velocityMagnitude;
@@ -1176,8 +1189,8 @@ function update() {
 		for(var i = 0; i < players.length;i++){
 			var p = players[i];
 
-			p.pos.x += p.velocity.x;
-			p.pos.y += p.velocity.y;
+			p.pos.x += p.velocity.x * deltaTime;
+			p.pos.y += p.velocity.y * deltaTime;
 
 			p.hitbox = [{x:p.pos.x-hitboxSize*p.size/2,y:p.pos.y-hitboxSize*p.size/2},{x:p.pos.x+hitboxSize*p.size/2,y:p.pos.y-hitboxSize*p.size/2},{x:p.pos.x+hitboxSize*p.size/2,y:p.pos.y+hitboxSize*p.size/2},{x:p.pos.x-hitboxSize*p.size/2,y:p.pos.y+hitboxSize*p.size/2}]
 		}
@@ -1203,16 +1216,16 @@ function update() {
 			if(shooting){
 				if(weaponCooldown<=0 && localPlayer.energy >= 5){
 					//SHOOTING LAG MITIGATION
-					p.pos.x += 3 * p.velocity.x;
-					p.pos.y += 3 * p.velocity.y;
+					p.pos.x += 3 * p.velocity.x * deltaTime;
+					p.pos.y += 3 * p.velocity.y * deltaTime;
 					
 					shootProjectile(localPlayer);
 					
 					//SHOOTING LAG MITIGATION
 
 					localPlayer.energy-=5;
-					p.pos.x -= 3 * p.velocity.x;
-					p.pos.y -= 3 * p.velocity.y;
+					p.pos.x -= 3 * p.velocity.x * deltaTime;
+					p.pos.y -= 3 * p.velocity.y * deltaTime;
 					weaponCooldown = maxCooldown;
 					cooldownStart = weaponCooldown;
 				}
