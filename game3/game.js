@@ -1022,13 +1022,28 @@ function update() {
 		bgPos[2] = screenToWorldCoords({x:canvas.width,y:canvas.height});
 		bgPos[3] = screenToWorldCoords({x:0,y:canvas.height});
 
+		
+			
+		for(var x=bgPos[0].x - backgroundImage.width - (bgPos[0].x % backgroundImage.width);x<bgPos[1].x;x+=backgroundImage.width){
+			for(var y=bgPos[0].y - backgroundImage.height - (bgPos[0].y % backgroundImage.height);y<bgPos[3].y;y+=backgroundImage.height){
+				//if((x >= bgPos[0].x && x <= bgPos[1].x)||(y >= bgPos[0].y && y <= bgPos[3].y)){
+					//ctx.fillStyle="gray";
+					//ctx.fillRect(x,y,backgroundImage.width, backgroundImage.height);
+					ctx.drawImage(backgroundImage,x,y,backgroundImage.width,backgroundImage.height);
+					//ctx.fillStyle="red";
+					//ctx.fillRect(x,y,10, 10);
+				//}
+			}
+		}
+
+		/*
 		ctx.fillStyle="gray";
 		for(var b=0;b<4;b++){
 			bgPos[b].x -= bgPos[b].x % backgroundImage.width;
 			bgPos[b].y -= bgPos[b].y % backgroundImage.height;
 			ctx.fillRect(bgPos[b].x-5,bgPos[b].y-5,10,10);
 			ctx.drawImage(backgroundImage,bgPos[b].x,bgPos[b].y,backgroundImage.width,backgroundImage.height);
-		}
+		}*/
 		/*
 		bgPos.x -= bgPos.x % backgroundImage.width;
 		bgPos.x -= backgroundImage.width;
