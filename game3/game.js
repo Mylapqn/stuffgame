@@ -668,6 +668,7 @@ function onConnectionMessage(messageRaw) {
 		}
 		if (messageContent.type == "chat") {
 			player = findPlayerWithID(message.userID);
+			if(player != null)
 			addChatMessage(messageData.text,player);
 			
 

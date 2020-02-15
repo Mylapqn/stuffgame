@@ -83,7 +83,7 @@ body {
     color:white;
     text-align:center;
     /*background:rgb(240, 97, 159);*/
-    animation:loading 1s linear 0s infinite;
+    animation:loading 1s linear 0s infinite,hue 3s infinite linear;
 }
 #loadingCircle > span {
     letter-spacing: .5em;
@@ -167,4 +167,9 @@ body {
     100%{
         top:-100vh;
     }
+}
+
+@keyframes hue{
+    0% {filter: hue-rotate(0deg);}
+    100% {filter: hue-rotate(360deg);}
 }
