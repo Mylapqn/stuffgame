@@ -916,10 +916,119 @@ function update(timestamp) {
 		
 		
 		ctx.translate(lastPos.x,lastPos.y);
-		lastPos.x = localPlayer.pos.x - canvas.width/2/zoom;
-		lastPos.y = localPlayer.pos.y - canvas.height/2/zoom;
+		
 		
 		//#endregion
+
+		
+		//#region LOCAL PLAYER MOVEMENT
+		
+		maxVelocityMagnitude = localPlayer.speed;
+
+		if(alternativeControls){
+			localPlayer.rot += inputRotation * localPlayer.rotationSpeed * deltaTime;
+			if(inputVelocity != 0 && localPlayer.hp > 0){
+				localPlayer.velocity.x += Math.cos(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
+				localPlayer.velocity.y += Math.sin(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
+			}
+			else if (inertialDampening) {
+				localPlayer.velocity.x *= 1 - .3 * deltaTime;
+				localPlayer.velocity.y *= 1 - .3 * deltaTime;
+			}
+			velocityMagnitude = Math.sqrt(Math.abs(Math.pow(localPlayer.velocity.x,2)+Math.pow(localPlayer.velocity.y,2)));
+
+			if(Math.abs(velocityMagnitude) > maxVelocityMagnitude){
+				velocityNormalised.x = localPlayer.velocity.x / velocityMagnitude;
+				velocityNormalised.y = localPlayer.velocity.y / velocityMagnitude;
+				velocityMagnitude = Math.sign(velocityMagnitude) * maxVelocityMagnitude;
+				localPlayer.velocity.x = velocityNormalised.x * velocityMagnitude;
+				localPlayer.velocity.y = velocityNormalised.y * velocityMagnitude;
+				localPlayer.velocity.x = velocityNormalised.x * velocityMagnitude;
+				localPlayer.velocity.y = velocityNormalised.y * velocityMagnitude;
+			}
+
+			
+
+		}
+		else {
+			rotateToTarget(localPlayer,{pos:mouseWorldPos});
+
+			if(inputVelocity != 0 && localPlayer.hp > 0){
+				localPlayer.velocity.x += Math.cos(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
+				localPlayer.velocity.y += Math.sin(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
+			}
+			if(inputRotation!= 0 && localPlayer.hp > 0){
+				localPlayer.velocity.x -= Math.sin(localPlayer.rot) * inputRotation * localPlayer.thrust * deltaTime;
+				localPlayer.velocity.y += Math.cos(localPlayer.rot) * inputRotation * localPlayer.thrust * deltaTime;
+			}
+			if (inputVelocity == 0 && inputRotation == 0 && inertialDampening) {
+				localPlayer.velocity.x *= 1 - .5 * deltaTime;
+				localPlayer.velocity.y *= 1 - .5 * deltaTime;
+			}
+			velocityMagnitude = Math.sqrt(Math.abs(Math.pow(localPlayer.velocity.x,2)+Math.pow(localPlayer.velocity.y,2)));
+			
+			if(Math.abs(velocityMagnitude) > maxVelocityMagnitude){
+				velocityNormalised.x = localPlayer.velocity.x / velocityMagnitude;
+				velocityNormalised.y = localPlayer.velocity.y / velocityMagnitude;
+				velocityMagnitude = Math.sign(velocityMagnitude) * maxVelocityMagnitude;
+				localPlayer.velocity.x = velocityNormalised.x * velocityMagnitude;
+				localPlayer.velocity.y = velocityNormalised.y * velocityMagnitude;
+				localPlayer.velocity.x = velocityNormalised.x * velocityMagnitude;
+				localPlayer.velocity.y = velocityNormalised.y * velocityMagnitude;
+			}
+			
+			
+
+			/*
+			velocityMagnitude = Math.sign(velocityMagnitude) * Math.sqrt(Math.abs(Math.pow(localPlayer.velocity.x,2)+Math.pow(localPlayer.velocity.y,2)));
+
+			if(inputVelocity != 0 && localPlayer.hp > 0){
+				
+				velocityMagnitude += inputVelocity * localPlayer.thrust * deltaTime * deltaTime;
+				
+			}
+			else if (inertialDampening) {
+				velocityMagnitude *= 1 - .5 * deltaTime;
+			}
+
+			if(Math.abs(velocityMagnitude) > maxVelocityMagnitude*deltaTime){
+				velocityMagnitude = Math.sign(velocityMagnitude) * maxVelocityMagnitude*deltaTime;
+			}
+			if(inputVelocity < 0){
+				//velocityMagnitude *= -1;
+			}
+
+			localPlayer.velocity.x = Math.cos(localPlayer.rot) * velocityMagnitude;
+			localPlayer.velocity.y = Math.sin(localPlayer.rot) * velocityMagnitude;
+			*/
+
+			
+		}
+
+		if (inputVelocity == 0 && Math.abs(velocityMagnitude) < 200) {
+			localPlayer.velocity.x -= 200 * deltaTime * Math.sign(localPlayer.velocity.x);
+			localPlayer.velocity.y -= 200 * deltaTime * Math.sign(localPlayer.velocity.y);
+			if(Math.abs(localPlayer.velocity.x) < 10 && Math.abs(localPlayer.velocity.y) < 10){
+				localPlayer.velocity.x = 0;
+				localPlayer.velocity.y = 0;
+			}
+		}
+		
+		//#endregion
+
+		//#region HITBOX CALCULATION
+				for(var i = 0; i < players.length;i++){
+					var p = players[i];
+		
+					p.pos.x += p.velocity.x * deltaTime;
+					p.pos.y += p.velocity.y * deltaTime;
+		
+					p.hitbox = [{x:p.pos.x-hitboxSize*p.size/2,y:p.pos.y-hitboxSize*p.size/2},{x:p.pos.x+hitboxSize*p.size/2,y:p.pos.y-hitboxSize*p.size/2},{x:p.pos.x+hitboxSize*p.size/2,y:p.pos.y+hitboxSize*p.size/2},{x:p.pos.x-hitboxSize*p.size/2,y:p.pos.y+hitboxSize*p.size/2}]
+				}
+				//#endregion
+
+				lastPos.x = localPlayer.pos.x - canvas.width/2/zoom;
+				lastPos.y = localPlayer.pos.y - canvas.height/2/zoom;
 
 		//#region SCREEN SPACE BG FX
 		
@@ -1084,101 +1193,6 @@ function update(timestamp) {
 
 		//#endregion
 
-		//#region LOCAL PLAYER MOVEMENT
-		
-		maxVelocityMagnitude = localPlayer.speed;
-
-		if(alternativeControls){
-			localPlayer.rot += inputRotation * localPlayer.rotationSpeed * deltaTime;
-			if(inputVelocity != 0 && localPlayer.hp > 0){
-				localPlayer.velocity.x += Math.cos(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
-				localPlayer.velocity.y += Math.sin(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
-			}
-			else if (inertialDampening) {
-				localPlayer.velocity.x *= 1 - .3 * deltaTime;
-				localPlayer.velocity.y *= 1 - .3 * deltaTime;
-			}
-			velocityMagnitude = Math.sqrt(Math.abs(Math.pow(localPlayer.velocity.x,2)+Math.pow(localPlayer.velocity.y,2)));
-
-			if(Math.abs(velocityMagnitude) > maxVelocityMagnitude){
-				velocityNormalised.x = localPlayer.velocity.x / velocityMagnitude;
-				velocityNormalised.y = localPlayer.velocity.y / velocityMagnitude;
-				velocityMagnitude = Math.sign(velocityMagnitude) * maxVelocityMagnitude;
-				localPlayer.velocity.x = velocityNormalised.x * velocityMagnitude;
-				localPlayer.velocity.y = velocityNormalised.y * velocityMagnitude;
-				localPlayer.velocity.x = velocityNormalised.x * velocityMagnitude;
-				localPlayer.velocity.y = velocityNormalised.y * velocityMagnitude;
-			}
-
-			
-
-		}
-		else {
-			rotateToTarget(localPlayer,{pos:mouseWorldPos});
-
-			if(inputVelocity != 0 && localPlayer.hp > 0){
-				localPlayer.velocity.x += Math.cos(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
-				localPlayer.velocity.y += Math.sin(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
-			}
-			if(inputRotation!= 0 && localPlayer.hp > 0){
-				localPlayer.velocity.x -= Math.sin(localPlayer.rot) * inputRotation * localPlayer.thrust * deltaTime;
-				localPlayer.velocity.y += Math.cos(localPlayer.rot) * inputRotation * localPlayer.thrust * deltaTime;
-			}
-			if (inputVelocity == 0 && inputRotation == 0 && inertialDampening) {
-				localPlayer.velocity.x *= 1 - .5 * deltaTime;
-				localPlayer.velocity.y *= 1 - .5 * deltaTime;
-			}
-			velocityMagnitude = Math.sqrt(Math.abs(Math.pow(localPlayer.velocity.x,2)+Math.pow(localPlayer.velocity.y,2)));
-			
-			if(Math.abs(velocityMagnitude) > maxVelocityMagnitude){
-				velocityNormalised.x = localPlayer.velocity.x / velocityMagnitude;
-				velocityNormalised.y = localPlayer.velocity.y / velocityMagnitude;
-				velocityMagnitude = Math.sign(velocityMagnitude) * maxVelocityMagnitude;
-				localPlayer.velocity.x = velocityNormalised.x * velocityMagnitude;
-				localPlayer.velocity.y = velocityNormalised.y * velocityMagnitude;
-				localPlayer.velocity.x = velocityNormalised.x * velocityMagnitude;
-				localPlayer.velocity.y = velocityNormalised.y * velocityMagnitude;
-			}
-			
-			
-
-			/*
-			velocityMagnitude = Math.sign(velocityMagnitude) * Math.sqrt(Math.abs(Math.pow(localPlayer.velocity.x,2)+Math.pow(localPlayer.velocity.y,2)));
-
-			if(inputVelocity != 0 && localPlayer.hp > 0){
-				
-				velocityMagnitude += inputVelocity * localPlayer.thrust * deltaTime * deltaTime;
-				
-			}
-			else if (inertialDampening) {
-				velocityMagnitude *= 1 - .5 * deltaTime;
-			}
-
-			if(Math.abs(velocityMagnitude) > maxVelocityMagnitude*deltaTime){
-				velocityMagnitude = Math.sign(velocityMagnitude) * maxVelocityMagnitude*deltaTime;
-			}
-			if(inputVelocity < 0){
-				//velocityMagnitude *= -1;
-			}
-
-			localPlayer.velocity.x = Math.cos(localPlayer.rot) * velocityMagnitude;
-			localPlayer.velocity.y = Math.sin(localPlayer.rot) * velocityMagnitude;
-			*/
-
-			
-		}
-
-		if (inputVelocity == 0 && Math.abs(velocityMagnitude) < 200) {
-			localPlayer.velocity.x -= 200 * deltaTime * Math.sign(localPlayer.velocity.x);
-			localPlayer.velocity.y -= 200 * deltaTime * Math.sign(localPlayer.velocity.y);
-			if(Math.abs(localPlayer.velocity.x) < 10 && Math.abs(localPlayer.velocity.y) < 10){
-				localPlayer.velocity.x = 0;
-				localPlayer.velocity.y = 0;
-			}
-		}
-		
-		//#endregion
-
 		//#region ENEMY SPAWNING
 		if(enemyCount < maxEnemyCount){
 			enemySpawnTimer+= deltaTime;
@@ -1189,22 +1203,13 @@ function update(timestamp) {
 				enemySpawnTimer = 0;
 			}
 		}
-
+		
 		enemyCooldown -= deltaTime;
-
+		
 		//#endregion
 		
-		//#region HITBOX CALCULATION
-		for(var i = 0; i < players.length;i++){
-			var p = players[i];
-
-			p.pos.x += p.velocity.x * deltaTime;
-			p.pos.y += p.velocity.y * deltaTime;
-
-			p.hitbox = [{x:p.pos.x-hitboxSize*p.size/2,y:p.pos.y-hitboxSize*p.size/2},{x:p.pos.x+hitboxSize*p.size/2,y:p.pos.y-hitboxSize*p.size/2},{x:p.pos.x+hitboxSize*p.size/2,y:p.pos.y+hitboxSize*p.size/2},{x:p.pos.x-hitboxSize*p.size/2,y:p.pos.y+hitboxSize*p.size/2}]
-		}
-		//#endregion
 		
+
 		//#region PLAYERS LOOP
 		for(var i = 0;i<players.length;i++){
 			var p = players[i];
