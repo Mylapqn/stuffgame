@@ -170,11 +170,12 @@ var shipName = [
 	"Gunship",
 	"Frigate",
 	"Light Fighter",
-	"Chaser"
+	"Chaser",
+	"Photon"
 ]
 
 var playerImage = [];
-var playerImageCount = 8;
+var playerImageCount = 9;
 
 for(var i = 0; i < playerImageCount;i++){
 	var img = new Image();
@@ -193,12 +194,18 @@ var costDisplay = document.getElementById("costDisplay");
 var shipNameDisplay = document.getElementById("shipNameDisplay");
 var nextShipNameDisplay = document.getElementById("nextShipNameDisplay");
 
+var chatMessageArea = document.getElementById("chatMessageContainer");
+var chatInput = document.getElementById("chatInput");
+var chatSend = document.getElementById("chatSend");
+
 var menuOpen = false;
 
 var upgradeCost = 1;
 
 var localPlayer;
 var players = [];
+
+var playerCount = 0;
 
 
 var loadingScreen = document.getElementById("loadingScreen");
@@ -291,15 +298,17 @@ connect();
 
 var mousePos = {x:0,y:0};
 
-document.onmousemove = mouseMove;
-document.onmousedown = mouseDown;
+gameArea.onmousemove = mouseMove;
+gameArea.onmousedown = mouseDown;
 document.onmouseup = mouseUp;
 
 document.addEventListener("keydown", keyDown, false);
 document.addEventListener("keyup", keyUp, false);
-document.addEventListener("wheel", wheel, false);
+gameArea.addEventListener("wheel", wheel, false);
 
-document.addEventListener('contextmenu', function(evt) { 
+chatInput.addEventListener("keydown", chatKeyDown, false);
+
+gameArea.addEventListener('contextmenu', function(evt) { 
 	if(!alternativeControls)evt.preventDefault();
   }, false);
 
@@ -322,6 +331,7 @@ inputRotation = 0;
 function keyDown(event) {
 	var key = event.key.toUpperCase();
 	//console.log("key down: " + key);
+	if(document.activeElement != chatInput){
 	if(!menuOpen){
 		if (key == "W") {
 			inputVelocity = 1;
@@ -355,6 +365,13 @@ function keyDown(event) {
 		else if (key == "T") {
 			constantDeltaTime = !constantDeltaTime;
 		}
+		else if (key == "ENTER") {
+			chatInput.focus();
+			/*var messages = document.getElementsByClassName('chatMessage');
+			for (var i = 0; i < messages.length; i++) {
+			messages[i].style.display = "block"; 
+			}*/
+		}
 	}
 	if (key == "ESCAPE") {
 		menuOpen = !menuOpen;
@@ -374,6 +391,7 @@ function keyDown(event) {
 			menu.style.display="none";
 		}
 	}
+}
 	/*else if (key == "F") {
 		slowMotion = !slowMotion;
 		if(slowMotion) timeMultiplier = 1/4;
@@ -431,6 +449,24 @@ function mouseUp(event) {
 		if(event.button == 2){
 			if(!alternativeControls) inputVelocity = 0;
 		}
+	}
+}
+
+function chatKeyDown(event) {
+	var key = event.key.toUpperCase();
+	if(key == "ENTER"){
+        if(chatInput == document.activeElement){
+            sendChat();
+		}
+	}
+	if (key == "ENTER") {
+		/*var messages = document.getElementsByClassName('chatMessage');
+		for (var i = 0; i < messages.length; i++) {
+			messages[i].style.display = ""; 
+		}*/
+		event.stopPropagation();
+		chatInput.blur();
+		gameArea.focus();
 	}
 }
 
@@ -516,12 +552,14 @@ function onConnectionMessage(messageRaw) {
 				newPlayer.id = message.data;
 				newPlayer.team = message.data;
 				console.log("Assigned ID: " + newPlayer.id);
+				addChatMessage("Someone joined the game.");
 
 				sendPlayerData();
 			}
 		}
 		if (message.subtype == "leaveUser") {
 			if (message.data != localPlayer.id) {
+				addChatMessage("Player " + findPlayerWithID(message.data).name + " left the game.");
 				console.log("Leave player: " + message.data + ", UserID: " + localPlayer.id);
 				//removePlayer(message.data);
 				removeIDFromArray(players,message.data);
@@ -531,6 +569,16 @@ function onConnectionMessage(messageRaw) {
 			console.log("New local ID: "+message.data);
 			localPlayer.id = message.data;
 			localPlayer.team = message.data;
+		}
+		if (message.subtype == "userCount") {
+			console.log("New user Count: "+message.data);
+			playerCount = message.data;
+			if(message.data > 2)
+				chatInput.placeholder = "Chat with " + (playerCount-1) + " other players";
+			else if(message.data > 1)
+				chatInput.placeholder = "Chat with " + (playerCount-1) + " other player";
+			else if(message.data == 1)
+				chatInput.placeholder = "Chat with yourself. You're alone here.";
 		}
 		if(message.subtype == "ping"){
 			console.log("Received ping after " + pingTimeout + " s");
@@ -545,8 +593,8 @@ function onConnectionMessage(messageRaw) {
 		var messageContent = JSON.parse(message.data);
 		var messageData = JSON.parse(messageContent.data);
 		if (message.userID != localPlayer.id) {
-
 			player = findPlayerWithID(message.userID);
+
 			if (players != null) {
 				if (messageContent.type == "coordinates") {
 					player.pos = JSON.parse(messageData.pos);
@@ -566,7 +614,6 @@ function onConnectionMessage(messageRaw) {
 					player.trail.color = player.color;
 				}
 				if (messageContent.type == "death") {
-					
 					player.hp = 0;
 					//PLAYER DEATH
 					createExplosion(player.pos.x,player.pos.y,20);
@@ -608,12 +655,21 @@ function onConnectionMessage(messageRaw) {
 
 				}
 				if (messageContent.type == "name") {
+					
 					player.name = messageData.name;
 					
 
 				}
 				
+				
+				
 			}
+
+		}
+		if (messageContent.type == "chat") {
+			player = findPlayerWithID(message.userID);
+			addChatMessage(messageData.text,player);
+			
 
 		}
 		if (messageContent.type == "shoot") {
@@ -677,7 +733,6 @@ function sendLevel(){
 function sendName(){
 	connection.send(JSON.stringify({ type: "name", data: JSON.stringify({name:localPlayer.name}) }));
 }
-
 function sendPing(){
 	pingTimeout+=trueDeltaTime;
 	lastPingSent+=trueDeltaTime;
@@ -698,6 +753,14 @@ function sendPing(){
 		console.log("attempting new connection");
 		connect();
 	}
+}
+function sendChat(){
+	var msg = chatInput.value;
+	if(msg.trim() != ""){
+	chatInput.value = null;
+	connection.send(JSON.stringify({ type: "chat", data: JSON.stringify({text:msg})}));
+	}
+
 }
 //#endregion
 
@@ -858,6 +921,31 @@ function shootAtTarget(shooter, target){
 		soundLaser.play(.3);
 	}
 }
+
+function addChatMessage(text,player){
+	var newMsg = document.createElement("div");
+	newMsg.classList.add("chatMessage");
+	if(player != null){
+			var msgName = document.createElement("span");
+			newMsg.appendChild(msgName);
+			msgName.innerHTML = player.name;
+			msgName.style.color=CSScolor(player.color);
+			newMsg.innerHTML += ": ";
+	}
+	else {
+		newMsg.style.color=CSScolor(localPlayer.color);
+		}
+			newMsg.innerHTML += text;
+			chatMessageArea.appendChild(newMsg);
+			newMsg.addEventListener('animationend', function(e) {
+				newMsg.style.display = "none";
+			  }, {
+				capture: false,
+				once: true,
+				passive: false
+			  });
+}
+
 function upgrade(){
 	if(score >= upgradeCost){
 		score-=upgradeCost;
