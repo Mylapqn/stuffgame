@@ -210,6 +210,11 @@ gameArea.style.height = window.innerHeight + "px";
 document.body.style.height = window.innerHeight + "px";
 
 var fps = 60;
+
+var fpsCounterFrames = 10;
+var fpsCurrentCount = 0;
+var fpsCurrentTime = 0;
+var currentFps = 60;
 		
 
 
@@ -902,6 +907,14 @@ function update(timestamp) {
 		lastFrame = Date.now();
 		//TODO: DELTATIME
 		frameIndex++;
+		fpsCurrentCount++;
+		fpsCurrentTime+= trueDeltaTime;
+		if(fpsCurrentCount >= fpsCounterFrames){
+			fpsCurrentCount = 0;
+			currentFps = fpsCurrentTime;
+			fpsCurrentTime = 0;
+
+		}
 
 		if(connected){
 			sendPing();
@@ -1039,7 +1052,9 @@ function update(timestamp) {
 
 		ctx.fillStyle="white";
 		ctx.textAlign="left";
-		ctx.fillText("Delta: " + trueDeltaTime.toFixed(3) + " FPS: " + (1/trueDeltaTime).toFixed(2),30,30);
+		ctx.fillText("DeltaTime: " + trueDeltaTime.toFixed(3),30,30);
+		ctx.fillText("True FPS: " + (1/trueDeltaTime).toFixed(0),30,60);
+		ctx.fillText("Avg FPS: " + (fpsCounterFrames/currentFps).toFixed(0),30,90);
 		
 		//AIMING CURSOR
 		/*ctx.strokeStyle = CSScolor({r:80,g:80,b:80});
