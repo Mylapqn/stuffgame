@@ -147,6 +147,8 @@ var frameIndex = 0;
 
 var lastFrame = 0;
 
+var constantDeltaTime = false;
+
 var projectiles = [];
 var explosions = [];
 var particles = [];
@@ -166,11 +168,13 @@ var shipName = [
 	"Interceptor",
 	"Bomber",
 	"Gunship",
-	"Frigate"
+	"Frigate",
+	"Light Fighter",
+	"Chaser"
 ]
 
 var playerImage = [];
-var playerImageCount = 6;
+var playerImageCount = 8;
 
 for(var i = 0; i < playerImageCount;i++){
 	var img = new Image();
@@ -263,7 +267,8 @@ var playerName = getQueryVariable("name");
 var playerColor = JSON.parse(getQueryVariable("color"));
 
 
-setInterval(update, 1000 / fps);
+//setInterval(update, 1000 / fps);
+update();
 
 //gameStart();
 
@@ -341,6 +346,9 @@ function keyDown(event) {
 		else if (key == "R") {
 			shieldEnabled = !shieldEnabled;
 			localPlayer.shieldEnabled = shieldEnabled;
+		}
+		else if (key == "T") {
+			constantDeltaTime = !constantDeltaTime;
 		}
 	}
 	if (key == "ESCAPE") {
@@ -880,13 +888,14 @@ function upgrade(){
 //#endregion
 
 //#region UPDATE
-function update() {
+function update(timestamp) {
+	//console.log("frame");
 	if (running) {
 		//TODO: DELTATIME
 		if(frameIndex == 0) lastFrame = Date.now();
 		trueDeltaTime=(Date.now()-lastFrame)/1000;
 
-		trueDeltaTime = 1/60;
+		if(constantDeltaTime)trueDeltaTime = 1/60;
 
 		deltaTime = trueDeltaTime * timeMultiplier;
 
@@ -1159,10 +1168,10 @@ function update() {
 			
 		}
 
-		if (inputVelocity == 0 && Math.abs(velocityMagnitude) < 1) {
-			localPlayer.velocity.x -= .5 * deltaTime * Math.sign(localPlayer.velocity.x);
-			localPlayer.velocity.y -= .5 * deltaTime * Math.sign(localPlayer.velocity.y);
-			if(Math.abs(localPlayer.velocity.x) < .1 && Math.abs(localPlayer.velocity.y) < .1){
+		if (inputVelocity == 0 && Math.abs(velocityMagnitude) < 200) {
+			localPlayer.velocity.x -= 200 * deltaTime * Math.sign(localPlayer.velocity.x);
+			localPlayer.velocity.y -= 200 * deltaTime * Math.sign(localPlayer.velocity.y);
+			if(Math.abs(localPlayer.velocity.x) < 10 && Math.abs(localPlayer.velocity.y) < 10){
 				localPlayer.velocity.x = 0;
 				localPlayer.velocity.y = 0;
 			}
@@ -1672,8 +1681,8 @@ function update() {
 		
 		ctx.translate(-lastPos.x,-lastPos.y);
 		
-
 	}
+	window.requestAnimationFrame(update);
 }
 //#endregion
 
