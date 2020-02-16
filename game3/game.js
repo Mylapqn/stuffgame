@@ -51,7 +51,7 @@ function Trail(player,rp){
 	//this.maxLength = 1000;
 	
 	this.updateInterval = 1/fps;
-	this.maxLength = 2/this.updateInterval;
+	this.maxLength = 4/this.updateInterval;
 	this.lastUpdate = 0;
 	this.update = function(){
 		var newPos = rotateAroundPoint(this.relativePos,{x:0,y:0},-this.parent.rot);
@@ -545,8 +545,10 @@ function onConnectionMessage(messageRaw) {
 				console.log("Init message received");
 				//addPlayer(message.data);
 				localPlayer = addPlayer(false);
-				if(playerName)
+				if(playerName){
 				localPlayer.name = playerName;
+				connection.send(JSON.stringify({ type: "technical", subtype:"initData", name: playerName, color: playerColor}));
+				}
 				localPlayer.color = playerColor;
 				document.documentElement.style.setProperty('--playerColor', CSScolor(localPlayer.color ));
 				if(colorLuminance(localPlayer.color) > 128)
@@ -582,21 +584,25 @@ function onConnectionMessage(messageRaw) {
 			}
 		}
 		if (message.subtype == "newUser") {
+			
 			if (message.data != localPlayer.id) {
 				console.log("New player: " + message.data + ", UserID: " + message.data);
 				var newPlayer = addPlayer(false);
 				
 				newPlayer.id = message.data;
 				newPlayer.team = message.data;
+				newPlayer.name = message.name;
+				newPlayer.color = message.color;
 				console.log("Assigned ID: " + newPlayer.id);
-				addChatMessage("Someone joined the game.");
+				addChatMessage("Player " + message.name + " joined the game.",null,newPlayer.color);
 
 				sendPlayerData();
 			}
 		}
 		if (message.subtype == "leaveUser") {
 			if (message.data != localPlayer.id) {
-				addChatMessage("Player " + findPlayerWithID(message.data).name + " left the game.");
+				var leftPlayer = findPlayerWithID(message.data);
+				addChatMessage("Player " + leftPlayer.name + " left the game.",null,leftPlayer.color);
 				console.log("Leave player: " + message.data + ", UserID: " + localPlayer.id);
 				//removePlayer(message.data);
 				removeIDFromArray(players,message.data);
@@ -632,9 +638,22 @@ function onConnectionMessage(messageRaw) {
 		if (message.userID != localPlayer.id) {
 			player = findPlayerWithID(message.userID);
 
-			if (players != null) {
+			if (player != null) {
 				if (messageContent.type == "coordinates") {
+					var oldPos = {x:player.pos.x,y:player.pos.y};
 					player.pos = JSON.parse(messageData.pos);
+					player.rot = messageData.rot;
+					player.velocity = {x:player.pos.x-oldPos.x,y:player.pos.y-oldPos.y};
+					player.velocity.x *=60;
+					player.velocity.y *=60;
+					/*if (!players[playerIndex].initialised) {
+						players[playerIndex].oldPos.x = players[playerIndex].pos.x;
+						players[playerIndex].oldPos.y = players[playerIndex].pos.y;
+						players[playerIndex].initialised = true;
+					}*/
+				}
+				if (messageContent.type == "velocity") {
+					player.velocity = JSON.parse(messageData.velocity);
 					player.rot = messageData.rot;
 					/*if (!players[playerIndex].initialised) {
 						players[playerIndex].oldPos.x = players[playerIndex].pos.x;
@@ -658,6 +677,7 @@ function onConnectionMessage(messageRaw) {
 					if(messageData.killer == localPlayer.id){
 						score+=player.level+1;
 					}
+					addChatMessage(player.name + " was killed by " + findPlayerWithID(messageData.killer).name,null,localPlayer.color);
 					removeIDFromArray(players,player.id);
 
 				}
@@ -731,7 +751,7 @@ function sendPos() {
 }
 
 function sendSpeed() {
-	connection.send(JSON.stringify({ type: "speed", data: JSON.stringify({speed:localPlayer.speed}) }));
+	connection.send(JSON.stringify({ type: "velocity", data: JSON.stringify({velocity:JSON.stringify(localPlayer.velocity),rot:localPlayer.rot}) }));
 	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
 }
 
@@ -959,7 +979,7 @@ function shootAtTarget(shooter, target){
 	}
 }
 
-function addChatMessage(text,player){
+function addChatMessage(text,player,color){
 	var newMsg = document.createElement("div");
 	newMsg.classList.add("chatMessage");
 	if(player != null){
@@ -970,7 +990,12 @@ function addChatMessage(text,player){
 			newMsg.innerHTML += ": ";
 	}
 	else {
-		newMsg.style.color=CSScolor(localPlayer.color);
+		if(color != null){
+			newMsg.style.color=CSScolor(color);
+		}
+		else {
+			newMsg.style.color=CSScolor(localPlayer.color);
+		}
 		}
 			newMsg.innerHTML += text;
 			chatMessageArea.appendChild(newMsg);
@@ -984,7 +1009,7 @@ function addChatMessage(text,player){
 }
 
 function upgrade(choice){
-	//if(score >= upgradeCost){
+	if(score >= upgradeCost){
 		if(localPlayer.shipID == 0 || (localPlayer.shipID <= 5 && choice == 1) || (localPlayer.shipID > 5 && choice == 2)){
 		score-=upgradeCost;
 		upgradeCost++;
@@ -1045,7 +1070,7 @@ function upgrade(choice){
 		}
 		sendLevel();
 	}
-	//}
+	}
 }
 
 //#endregion
@@ -1191,8 +1216,11 @@ function update(timestamp) {
 				for(var i = 0; i < players.length;i++){
 					var p = players[i];
 		
-					p.pos.x += p.velocity.x * deltaTime;
-					p.pos.y += p.velocity.y * deltaTime;
+					if(p.id == localPlayer.id){
+						p.pos.x += p.velocity.x * deltaTime;
+						p.pos.y += p.velocity.y * deltaTime;
+
+					}
 		
 					p.hitbox = [{x:p.pos.x-hitboxSize*p.size/2,y:p.pos.y-hitboxSize*p.size/2},{x:p.pos.x+hitboxSize*p.size/2,y:p.pos.y-hitboxSize*p.size/2},{x:p.pos.x+hitboxSize*p.size/2,y:p.pos.y+hitboxSize*p.size/2},{x:p.pos.x-hitboxSize*p.size/2,y:p.pos.y+hitboxSize*p.size/2}]
 				}
@@ -1269,7 +1297,7 @@ function update(timestamp) {
 		//#endregion
 
 		//#region PLAYER CIRCLE HUD
-			
+		
 			ctx.lineWidth = 3;
 			ctx.strokeStyle=CSScolorAlpha({r:255,g:255,b:255},.1);
 			ctx.beginPath();
@@ -1281,23 +1309,39 @@ function update(timestamp) {
 			ctx.stroke();
 
 		//#region GAUGES
+		
+		if(localPlayer.maxHp < 200)
+		ctx.setLineDash([(2*(pointerDistance - 5)*Math.PI/4)/(localPlayer.maxHp)-5, 5]);
+		else
+		ctx.setLineDash([]);
 			ctx.beginPath();
 			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(1.75),Math.PI *(0.25));
 			ctx.stroke();
+			ctx.setLineDash([]);
 			ctx.beginPath();
 			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(0.75),Math.PI *(1.25));
 			ctx.stroke();
+			if(localPlayer.maxEnergy < 300)
+		ctx.setLineDash([(2*(pointerDistance - 15)*Math.PI/4)/(localPlayer.maxEnergy/5)-5, 5]);
+		else
+		ctx.setLineDash([]);
 			ctx.beginPath();
 			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 15,Math.PI*(0.75),Math.PI *(1.25));
 			ctx.stroke();
+			ctx.setLineDash([]);
 
 			//HP
 
+			if(localPlayer.maxHp < 40)
+		ctx.setLineDash([(2*(pointerDistance - 5)*Math.PI/4)/(localPlayer.maxHp)-5, 5]);
+		else
+		ctx.setLineDash([]);
 			ctx.strokeStyle=CSScolor(localPlayer.color);
 
 			ctx.beginPath();
 			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(1.75 - 0.001 + 0.5 * (1-(localPlayer.hp / localPlayer.maxHp))),Math.PI *(0.25));
 			ctx.stroke();
+			ctx.setLineDash([]);
 
 			//COOLDOWN
 
@@ -1308,10 +1352,14 @@ function update(timestamp) {
 			ctx.stroke();
 
 			ctx.strokeStyle=CSScolor({r:170,g:110,b:40});
-
+			if(localPlayer.maxEnergy < 300)
+		ctx.setLineDash([(2*(pointerDistance - 15)*Math.PI/4)/(localPlayer.maxEnergy/5)-5, 5]);
+		else
+		ctx.setLineDash([]);
 			ctx.beginPath();
 			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 15,Math.PI*(0.75),Math.PI *(1.25 -  0.5 * (1-(localPlayer.energy / localPlayer.maxEnergy))));
 			ctx.stroke();
+			ctx.setLineDash([]);
 			//#endregion
 			
 		//#endregion
@@ -1512,6 +1560,21 @@ function update(timestamp) {
 					ctx.arc(p.pos.x, p.pos.y,p.size/2,0,Math.PI*2 * (p.hp/p.maxHp));
 					ctx.stroke();
 
+
+					//PREDICT POS
+					if(p.id != localPlayer.id){
+						var predictedPos = predictTargetPos(localPlayer,p,2000);
+						ctx.strokeStyle=CSScolorAlpha({r:255,g:255,b:255},.2);
+						ctx.beginPath();
+						ctx.arc(predictedPos.x, predictedPos.y,10,0,Math.PI*2);
+						ctx.stroke();
+						ctx.setLineDash([10, 15]);
+						ctx.beginPath();
+						ctx.moveTo(p.pos.x,p.pos.y);
+						ctx.lineTo(predictedPos.x, predictedPos.y);
+						ctx.stroke();
+						ctx.setLineDash([]);
+					}
 					
 
 					
@@ -1958,6 +2021,18 @@ function renderTrail(trail){
 	else {
 		console.log("Trail has no points");
 	}
+}
+
+function predictTargetPos(shooter, target, projectileSpeed){
+	var distanceToTarget = distancePos(target, shooter);
+	var timeToTarget = distanceToTarget / projectileSpeed;
+	var velocityDiff = {
+		x:target.velocity.x - shooter.velocity.x,
+		y:target.velocity.y - shooter.velocity.y
+
+	}
+	var predictedTargetPos = {x: target.pos.x + velocityDiff.x * timeToTarget, y:target.pos.y + velocityDiff.y * timeToTarget};
+	return predictedTargetPos;
 }
 
 function gameStart() {
