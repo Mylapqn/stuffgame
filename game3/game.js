@@ -997,15 +997,15 @@ function addChatMessage(text,player,color){
 			newMsg.style.color=CSScolor(localPlayer.color);
 		}
 		}
-			newMsg.innerHTML += text;
-			chatMessageArea.appendChild(newMsg);
-			newMsg.addEventListener('animationend', function(e) {
-				newMsg.style.display = "none";
-			  }, {
-				capture: false,
-				once: true,
-				passive: false
-			  });
+	newMsg.appendChild( document.createTextNode(text));
+	chatMessageArea.appendChild(newMsg);
+	newMsg.addEventListener('animationend', function(e) {
+			newMsg.style.display = "none";
+		}, {
+			capture: false,
+			once: true,
+			passive: false
+	});
 }
 
 function upgrade(choice){
