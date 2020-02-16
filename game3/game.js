@@ -15,7 +15,7 @@ function Player(id) {
 	this.hitbox = [];
 	this.hp = 10;
 	this.maxHp = 10;
-	this.trail=new Trail(this);
+	this.trails=[new Trail(this,{x:-20,y:0})];
 	this.team = 1;
 	this.level = 0;
 	this.size = 100;
@@ -23,26 +23,45 @@ function Player(id) {
 	this.maxEnergy=100;
 	this.energyRecharge=10;
 	this.shieldEnabled= true;
+	this.shipID = 0;
+	//this.ship = ships[0];
 };
 
-function Trail(player){
+function Ship() {
+	this.name="shipName";
+	this.id = 0;
+	this.speed = 850;
+	this.thrust = 1000;
+	this.rotationSpeed = 4;
+	this.maxHp = 10;
+	this.trailPositions=[{x:-20,y:-10},{x:-20,y:10}];
+	this.size = 100;
+	this.maxEnergy=100;
+	this.energyRecharge=10;
+};
+
+function Trail(player,rp){
 	this.points=[];
-	this.color = { r: 100, g: 80, b: 200 };
 	this.parent = player;
+	this.relativePos = rp;
 	this.color = this.parent.color;
 	this.thickness = 1;
 	
 	//TODO RESET
 	//this.maxLength = 1000;
 	
-	this.updateInterval = 1/30;
+	this.updateInterval = 1/fps;
 	this.maxLength = 2/this.updateInterval;
 	this.lastUpdate = 0;
 	this.update = function(){
+		var newPos = rotateAroundPoint(this.relativePos,{x:0,y:0},-this.parent.rot);
+		newPos.x += this.parent.pos.x;
+		newPos.y += this.parent.pos.y;
+
 		this.lastUpdate+=deltaTime;
-		if(this.lastUpdate >= this.updateInterval){
+		//if(this.lastUpdate >= this.updateInterval){
 			if(this.points.length < this.maxLength){
-				this.points.push(new TrailPoint(this.parent.pos.x,this.parent.pos.y, this.maxLength*this.updateInterval));
+				this.points.push(new TrailPoint(newPos.x,newPos.y, this.maxLength*this.updateInterval));
 				//this.points.push(new TrailPoint(this.parent.pos.x,this.parent.pos.y, 5));
 			}
 			else {
@@ -50,7 +69,7 @@ function Trail(player){
 					this.points[i] = this.points[i+1];
 
 				}
-				this.points[this.points.length-1] = new TrailPoint(this.parent.pos.x,this.parent.pos.y, this.maxLength*this.updateInterval);
+				this.points[this.points.length-1] = new TrailPoint(newPos.x,newPos.y, this.maxLength*this.updateInterval);
 				//this.points[this.points.length-1] = new TrailPoint(this.parent.pos.x,this.parent.pos.y, 5);
 			}
 			for(var i = 0; i < this.points.length;i++){
@@ -61,7 +80,7 @@ function Trail(player){
 			}
 			this.lastUpdate = 0;
 
-		}
+		//}
 	};
 }
 function TrailPoint(x,y,maxAge){
@@ -172,7 +191,25 @@ var shipName = [
 	"Light Fighter",
 	"Chaser",
 	"Photon"
+];
+var ships = [
+	{
+		name:"shipOne",
+		id:0,
+		trails:[new Trail(this,{x:-20,y:0})],
+		size:200,
+		image:0
+	},
+	{
+		name:"shipTwo",
+		id:1,
+		trails:[new Trail(this,{x:-20,y:-10}),new Trail(this,{x:-20,y:10})],
+		size:200,
+		image:9
+	},
 ]
+
+loadJSON("ships/trainingShip.json");
 
 var playerImage = [];
 var playerImageCount = 9;
@@ -267,10 +304,10 @@ var zoom = 1;
 
 var hitboxSize = .7;
 
-var pingSendInterval = 1;
+/*var pingSendInterval = 1;
 var lastPingSent = 0;
 var pingTimeout = 0;
-var maxPingTimeout = 15;
+var maxPingTimeout = 15;*/
 //#endregion
 
 //#region INIT FUNCTION CALLS
@@ -379,11 +416,11 @@ function keyDown(event) {
 			menu.style.display="flex";
 			scoreDisplay.innerHTML = score;
 			costDisplay.innerHTML = upgradeCost;
-			if(localPlayer.level < playerImageCount){
-				shipNameDisplay.innerHTML = shipName[localPlayer.level];
-				if(localPlayer.level < playerImageCount-1){
-					nextShipNameDisplay.innerHTML = shipName[localPlayer.level+1];
-					document.getElementById("nextShipImage").src=playerImage[localPlayer.level+1].src;
+			if(localPlayer.shipID < playerImageCount){
+				shipNameDisplay.innerHTML = shipName[localPlayer.shipID];
+				if(localPlayer.shipID < playerImageCount-1){
+					nextShipNameDisplay.innerHTML = shipName[localPlayer.shipID+1];
+					document.getElementById("nextShipImage").src=playerImage[localPlayer.shipID+1].src;
 				}
 			}
 		}
@@ -478,8 +515,9 @@ function connect(){
 	connection = new WebSocket('wss://all-we-ever-want-is-indecision.herokuapp.com');
 	connection.onopen = onConnectionOpen;
 	connection.onmessage = onConnectionMessage;
-	connection.onclose = function(){
-		console.log("Connection closed, last ping sent " + lastPingSent + " s ago.");
+	connection.onclose = function(e){
+		//console.log("Connection closed, last ping sent " + lastPingSent + " s ago.");
+		console.log("Connection closed. Code: " + e.code + " Reason: " + e.reason);
 		connected = false;
 		running = false;
 		loadingScreen.style.display = "flex";
@@ -510,7 +548,6 @@ function onConnectionMessage(messageRaw) {
 				if(playerName)
 				localPlayer.name = playerName;
 				localPlayer.color = playerColor;
-				localPlayer.trail.color = playerColor;
 				document.documentElement.style.setProperty('--playerColor', CSScolor(localPlayer.color ));
 				if(colorLuminance(localPlayer.color) > 128)
 					document.documentElement.style.setProperty('--textColor',"black");
@@ -580,14 +617,14 @@ function onConnectionMessage(messageRaw) {
 			else if(message.data == 1)
 				chatInput.placeholder = "Chat with yourself. You're alone here.";
 		}
-		if(message.subtype == "ping"){
+		/*if(message.subtype == "ping"){
 			console.log("Received ping after " + pingTimeout + " s");
 			pingTimeout = 0;
 			if(message.requestReply){
 				//sendPing();
 				//Temporary: Disabled due to possible looping pings
 			}
-		}
+		}*/
 	}
 	if (message.type == "message") {
 		var messageContent = JSON.parse(message.data);
@@ -611,7 +648,6 @@ function onConnectionMessage(messageRaw) {
 				if (messageContent.type == "color") {
 					var receivedColor = JSON.parse(messageData.color);
 					player.color = receivedColor;
-					player.trail.color = player.color;
 				}
 				if (messageContent.type == "death") {
 					player.hp = 0;
@@ -651,6 +687,7 @@ function onConnectionMessage(messageRaw) {
 				if (messageContent.type == "level") {
 					player.level = messageData.level;
 					player.size = messageData.size;
+					player.shipID = messageData.shipID;
 					
 
 				}
@@ -729,12 +766,12 @@ function sendHP(){
 	connection.send(JSON.stringify({ type: "hp", data: JSON.stringify({hp:localPlayer.hp,maxHp:localPlayer.maxHp,energy:localPlayer.energy,maxEnergy:localPlayer.maxEnergy,shield:shieldEnabled}) }));
 }
 function sendLevel(){
-	connection.send(JSON.stringify({ type: "level", data: JSON.stringify({level:localPlayer.level,size:localPlayer.size}) }));
+	connection.send(JSON.stringify({ type: "level", data: JSON.stringify({level:localPlayer.level,size:localPlayer.size,shipID:localPlayer.shipID}) }));
 }
 function sendName(){
 	connection.send(JSON.stringify({ type: "name", data: JSON.stringify({name:localPlayer.name}) }));
 }
-function sendPing(){
+/*function sendPing(){
 	pingTimeout+=trueDeltaTime;
 	lastPingSent+=trueDeltaTime;
 	//console.log("pingTimeout: " + pingTimeout);
@@ -754,7 +791,7 @@ function sendPing(){
 		console.log("attempting new connection");
 		connect();
 	}
-}
+}*/
 function sendChat(){
 	var msg = chatInput.value;
 	if(msg.trim() != ""){
@@ -785,7 +822,6 @@ function addPlayer(ai){
 		p.name = "AI"
 		console.log("Added AI player with ID" + p.id);
 	}
-	p.trail.color = p.color;
 	players.push(p);
 	
 	return p;
@@ -947,8 +983,9 @@ function addChatMessage(text,player){
 			  });
 }
 
-function upgrade(){
-	if(score >= upgradeCost){
+function upgrade(choice){
+	//if(score >= upgradeCost){
+		if(localPlayer.shipID == 0 || (localPlayer.shipID <= 5 && choice == 1) || (localPlayer.shipID > 5 && choice == 2)){
 		score-=upgradeCost;
 		upgradeCost++;
 		localPlayer.thrust+=200;
@@ -961,22 +998,54 @@ function upgrade(){
 		localPlayer.energyRecharge+=2;
 		scoreDisplay.innerHTML = score;
 		costDisplay.innerHTML = upgradeCost;
-		if(localPlayer.level < playerImageCount){
-			shipNameDisplay.innerHTML = shipName[localPlayer.level];
-			if(localPlayer.level < playerImageCount-1){
-				nextShipNameDisplay.innerHTML = shipName[localPlayer.level+1];
-				document.getElementById("nextShipImage").src=playerImage[localPlayer.level+1].src;
+
+
+		var max = playerImageCount-1;
+		if(choice == 1){
+			localPlayer.shipID = 0 + localPlayer.level;
+			var max = 5;
+		}
+		if(choice == 2){
+			localPlayer.shipID = 5 + localPlayer.level;
+			var max = 8;
+		}
+
+
+		if(localPlayer.shipID < playerImageCount){
+			shipNameDisplay.innerHTML = shipName[localPlayer.shipID];
+			if(localPlayer.shipID < playerImageCount-1){
+				nextShipNameDisplay.innerHTML = shipName[localPlayer.shipID+1];
+				document.getElementById("nextShipImage").src=playerImage[localPlayer.shipID+1].src;
 			}
 		}
-		var pImg = playerImage[localPlayer.level];
-		if(localPlayer.level >= playerImageCount)
-		var pImg = playerImage[playerImageCount-1];
+
+
+
+		var pImg = playerImage[localPlayer.shipID];
+		if(localPlayer.shipID > max){
+		var pImg = playerImage[max];
+		localPlayer.shipID = max;
+		}
 		document.getElementById("shipImage").src=pImg.src;
-		if(localPlayer.level >= 5){
+		if(localPlayer.shipID == 3){
+			localPlayer.trails=[new Trail(localPlayer,{x:-28,y:0})];
+		}
+		if(localPlayer.shipID == 5){
+			localPlayer.trails=[new Trail(localPlayer,{x:-70,y:0})];
 			localPlayer.size = 200;
+		}
+		if (localPlayer.shipID == 6){
+			localPlayer.trails=[new Trail(localPlayer,{x:-20,y:0}),new Trail(localPlayer,{x:-20,y:-33}),new Trail(localPlayer,{x:-20,y:33})];
+		}
+		if (localPlayer.shipID == 7){
+			localPlayer.trails=[new Trail(localPlayer,{x:-22,y:0}),new Trail(localPlayer,{x:-22,y:-33}),new Trail(localPlayer,{x:-22,y:33}),new Trail(localPlayer,{x:13,y:-18}),new Trail(localPlayer,{x:13,y:18})];
+		}
+		if (localPlayer.shipID == 8){
+			localPlayer.trails=[new Trail(localPlayer,{x:-20,y:0}),new Trail(localPlayer,{x:-16,y:-20}),new Trail(localPlayer,{x:-16,y:20}),new Trail(localPlayer,{x:-23,y:-47}),new Trail(localPlayer,{x:-23,y:47})];
 		}
 		sendLevel();
 	}
+	//}
 }
 
 //#endregion
@@ -1006,7 +1075,7 @@ function update(timestamp) {
 		}
 
 		if(connected){
-			sendPing();
+			//sendPing();
 			sendHP();
 			if(localPlayer.hp > 0)
 			sendPos();
@@ -1424,8 +1493,11 @@ function update(timestamp) {
 				//TEST IF ON SCREEN
 				if(p.pos.x - localPlayer.pos.x < canvas.width/2/zoom && p.pos.x - localPlayer.pos.x > -canvas.width/2/zoom && p.pos.y - localPlayer.pos.y < canvas.height/2/zoom && p.pos.y - localPlayer.pos.y > -canvas.height/2/zoom){
 					//DRAW TRAIL
-					p.trail.update();
-					renderTrail(p.trail);
+					p.trails.forEach(trail => {
+						trail.update();
+						renderTrail(trail);
+						
+					});
 					
 					
 					//DRAW PLAYER
@@ -1453,8 +1525,8 @@ function update(timestamp) {
 					ctx.fillStyle=CSScolor(p.color);
 					//ctx.fillRect(0, 0, canvas.width, canvas.height);
 					//ctx.globalCompositeOperation="destination-in";
-					var pImg = playerImage[p.level];
-					if(p.level >= playerImageCount)
+					var pImg = playerImage[p.shipID];
+					if(p.shipID >= playerImageCount)
 					var pImg = playerImage[playerImageCount-1];
 					ctx.drawImage(pImg, p.pos.x - p.size/2, p.pos.y - p.size/2, p.size, p.size);
 					ctx.restore();
@@ -1856,22 +1928,32 @@ function findPlayerWithID(playerID) {
 	return null;
 }
 
+function findArrayElementWithID(array,ID) {
+	for (var i = 0; i < array.length; i++) {
+		//console.log("Player index from id: scanning index " + i + " for ID " + playerID + ". Found ID: " + players[i].ID);
+		if (array[i].id == ID) {
+			return array[i];
+		}
+	}
+	return null;
+}
+
 function renderTrail(trail){
 	if(trail.points.length > 0){
 		for(var t = 0; t < trail.points.length-1; t++){
 			ctx.beginPath();
 			ctx.moveTo(trail.points[t].pos.x,trail.points[t].pos.y);
 			ctx.lineTo(trail.points[t+1].pos.x,trail.points[t+1].pos.y);
-			ctx.strokeStyle=CSScolorAlpha(trail.color,1-(trail.points[t].age/trail.points[t].maxAge));
+			ctx.strokeStyle=CSScolorAlpha(trail.parent.color,1-(trail.points[t].age/trail.points[t].maxAge));
 			ctx.lineWidth = trail.thickness * 5*(1-(trail.points[t].age/trail.points[t].maxAge));
 			ctx.stroke();
 		}
-		ctx.beginPath();
+		/*ctx.beginPath();
 		ctx.moveTo(trail.points[trail.points.length-1].pos.x,trail.points[trail.points.length-1].pos.y);
 		ctx.lineTo(trail.parent.pos.x,trail.parent.pos.y);
 		ctx.strokeStyle=CSScolorAlpha(trail.color,1-(trail.points[t].age/trail.points[t].maxAge));
 		ctx.lineWidth = trail.thickness * 5*(1-(trail.points[t].age/trail.points[t].maxAge));
-		ctx.stroke();
+		ctx.stroke();*/
 	}
 	else {
 		console.log("Trail has no points");
@@ -1987,6 +2069,16 @@ function detectCollision(a, b) {
     return true;
 }
 
+function rotateAroundPoint(pos,center,rot){
+	var sin = Math.sin(rot);
+	var cos = Math.cos(rot);
+	var newPos = {
+		x:(cos * (pos.x - center.x)) + (sin * (pos.y - center.y)) + center.x,
+		y:(cos * (pos.y - center.y)) - (sin * (pos.x - center.x)) + center.y
+	}
+	return newPos;
+}
+
 function getQueryVariable(variable)
 {
        var query = window.location.search.substring(1);
@@ -1996,5 +2088,17 @@ function getQueryVariable(variable)
                if(pair[0] == variable){return decodeURI(pair[1]);}
        }
        return(false);
+}
+
+function loadJSON(path){
+	var xhr = new XMLHttpRequest();
+	xhr.onreadystatechange = function (){
+		if(xhr.readyState == 4 && xhr.status == "200"){
+			console.log(xhr.reaponseText);
+		}
+
+	};
+	xhr.open("GET",path,true);
+	xhr.send();
 }
 //#endregion
