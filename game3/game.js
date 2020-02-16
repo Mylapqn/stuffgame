@@ -1315,7 +1315,7 @@ function update(timestamp) {
 		else
 		ctx.setLineDash([]);
 			ctx.beginPath();
-			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(1.75),Math.PI *(0.25));
+			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(0.25),Math.PI *(1.75),true);
 			ctx.stroke();
 			ctx.setLineDash([]);
 			ctx.beginPath();
@@ -1339,7 +1339,7 @@ function update(timestamp) {
 			ctx.strokeStyle=CSScolor(localPlayer.color);
 
 			ctx.beginPath();
-			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(1.75 - 0.001 + 0.5 * (1-(localPlayer.hp / localPlayer.maxHp))),Math.PI *(0.25));
+			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI *(0.25),Math.PI*(1.75 - 0.001 + 0.5 * (1-(localPlayer.hp / localPlayer.maxHp))),true);
 			ctx.stroke();
 			ctx.setLineDash([]);
 
@@ -2169,7 +2169,7 @@ function loadJSON(path){
 	var xhr = new XMLHttpRequest();
 	xhr.onreadystatechange = function (){
 		if(xhr.readyState == 4 && xhr.status == "200"){
-			console.log(xhr.reaponseText);
+			console.log(xhr.responseText);
 		}
 
 	};
