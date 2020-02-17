@@ -181,6 +181,24 @@ var playerWidth = 100;
 var backgroundImage = new Image();
 backgroundImage.src = "images/bg2.png";
 
+var icons = new Array(3);
+for(var i = 0;i<icons.length;i++){
+	icons[i] = new Image();
+}
+icons[0].src = "images/icons/inertialDampening.png";
+icons[1].src = "images/icons/shieldEnabled.png";
+icons[2].src = "images/icons/alternativeControls.png";
+
+var keys = [];
+keys[0] = "Q";
+keys[1] = "R";
+keys[2] = "E";
+
+var keyIDs = {};
+keyIDs.inertialDampening = 0;
+keyIDs.shieldEnabled = 1;
+keyIDs.alternativeControls = 2;
+
 var shipName = [
 	"Training Ship",
 	"Fighter",
@@ -1258,15 +1276,15 @@ function update(timestamp) {
 		//#region CONTROLS PROMPT
 			
 			
-			if(!alternativeControls){
+			/*if(!alternativeControls){
 				ctx.fillStyle = CSScolor({r:80,g:80,b:80});
-				ctx.fillText("press E for alternative controls", canvas.width/2, canvas.height - 300);
+				ctx.fillText("press E for alternative controls", canvas.width/2, canvas.height - 320);
 			}
 			else {
 				ctx.fillStyle = CSScolor({r:50,g:50,b:50});
-				ctx.fillText("press E for normal controls", canvas.width/2, canvas.height - 300);
-			}
-			if(inertialDampening){
+				ctx.fillText("press E for normal controls", canvas.width/2, canvas.height - 320);
+			}*/
+			/*if(inertialDampening){
 				ctx.fillStyle = CSScolor({r:80,g:80,b:80});
 				ctx.fillText("press Q to turn off inertial dampening", canvas.width/2, canvas.height - 260);
 				
@@ -1274,14 +1292,14 @@ function update(timestamp) {
 			else {
 				ctx.fillStyle = CSScolor({r:50,g:50,b:50});
 				ctx.fillText("press Q to turn on inertial dampening", canvas.width/2, canvas.height - 260);
-			}
+			}*/
 
 			if(!menuOpen){
 				ctx.fillStyle = CSScolor({r:80,g:80,b:80});
-				ctx.fillText("(ESC) shop", canvas.width/2, canvas.height - 180);
+				ctx.fillText("(ESC) shop", canvas.width/2, canvas.height - 100);
 				
 			}
-			if(shieldEnabled){
+			/*if(shieldEnabled){
 				ctx.fillStyle = CSScolor({r:80,g:80,b:80});
 				ctx.fillText("(R) turn off shields", canvas.width/2, canvas.height - 140);
 				
@@ -1289,10 +1307,15 @@ function update(timestamp) {
 			else{
 				ctx.fillStyle = CSScolor({r:50,g:50,b:50});
 				ctx.fillText("(R) turn on shields", canvas.width/2, canvas.height - 140);
-			}
+			}*/
 			ctx.fillStyle = CSScolor({r:80,g:80,b:80});
-				ctx.fillText("Kills: " + score, canvas.width/2, canvas.height - 220);
+				ctx.fillText("Kills: " + score, canvas.width/2, canvas.height - 60);
 
+				drawKeyPrompt(keyIDs.inertialDampening,150,450,inertialDampening);
+				drawKeyPrompt(keyIDs.alternativeControls,285,480,!alternativeControls);
+				drawKeyPrompt(keyIDs.shieldEnabled,420,450,shieldEnabled);
+
+				
 			
 		//#endregion
 
@@ -2047,6 +2070,32 @@ function gameStart() {
 	}, 1000);
 
 	running = true;
+}
+
+function drawKeyPrompt(id,x,y,toggle){
+	var pos = {
+		x:canvas.width/2-pointerDistance+x,
+		y:canvas.height/2-pointerDistance+y
+	}
+	ctx.font = "bold 20px Century Gothic";
+	ctx.strokeStyle="white";
+	ctx.fillStyle="white";
+	ctx.globalAlpha=.5;
+	ctx.lineWidth=2;
+	ctx.drawImage(icons[id],pos.x-10,pos.y,50,50);
+
+	if(toggle != null && toggle){
+		ctx.fillRect(pos.x,pos.y+50,30,30);
+		ctx.fillStyle="black";
+		ctx.globalAlpha = 1;
+		
+	}
+	else{
+		ctx.strokeRect(pos.x,pos.y+50,30,30);
+	}
+	ctx.fillText(keys[id],pos.x+15,pos.y+71);
+	ctx.globalAlpha = 1;
+	ctx.font = "20px Century Gothic";
 }
 
 //#endregion
