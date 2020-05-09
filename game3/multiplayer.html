@@ -33,8 +33,8 @@
             align-items: center;
             justify-content: center;
             flex-direction: column;
-            width:50vw;
-            height:80vh;
+            width:100vw;
+            height:100vh;
             background:black;
             color:white;
         }
@@ -53,11 +53,20 @@
             color:var(--textColor);
         }
         ul{
-            width:200px;
+            width:300px;
             list-style: none;
             margin-left: 0;
             padding-left: 1em;
             text-indent: -1em;
+        }
+        .topList > li {
+            color:var(--playerColor);
+        }
+        li{
+            color:white;
+        }
+        .negativeTrait {
+            color:#df4f4f;
         }
         #chat{
             position:absolute;
@@ -124,6 +133,25 @@
             }
         }
 
+        #leaderboard{
+            position:absolute;
+            z-index:1;
+            top:20px;
+            left:40vw;
+            left:40vw;
+            width:18vw;
+            text-align:left;
+            padding-left:1vw;
+            padding-right:1vw;
+            padding-top:10px;
+            padding-bottom:0px;
+            background-color: black;
+            color:white;
+            height:auto;
+            transition:max-height .5s,opacity .5s;
+            overflow:hidden;
+        }
+
         
         
     </style>
@@ -138,6 +166,23 @@
             <button id="chatSend" onclick="sendChat()">Send</button>
         </div>
         </div>
+
+        <div id="leaderboard" style="max-height:30px;opacity:.2;">
+            <div style="width:100%;text-align: center;">[TAB] Leaderboard</div>
+            <ol id="leaderboardList">
+                <li>Player</li>
+                <li>Player</li>
+                <li>Player</li>
+                <li>Player</li>
+                <li>Player</li>
+                <li>Player</li>
+                <li>Player</li>
+                <li>Player</li>
+                <li>Player</li>
+                <li>Player</li>
+            </ol>
+        </div>
+
         <div id="menu">
             <div class = "menuBackground">
                 <h1>SHOP</h1>
@@ -146,12 +191,17 @@
                 <div style="display:flex;flex-direction:row;align-items:center;font-size:5em;"><img src="images/player0.png" id="shipImage" style="width:256px;"> 🡆 <img src="images/player0.png" id="nextShipImage" style="width:256px;opacity:.5;"></div>
                 <span>Current ship: <span style="color:var(--playerColor)" id="shipNameDisplay">unknown</span>
                 &nbsp;Next level: <span style="color:var(--playerColor)" id="nextShipNameDisplay">unknown</span></span>
-                <ul>
+                <ul class="topList">
                     <li>Max HP + 1</li>
-                    <li>Rotation speed + 0.5</li>
                     <li>Main Weapon:
                         <ul>
                             <li>Shooting Speed + 10 %</li>
+                        </ul>
+                    </li>
+                    <li>Engine:
+                        <ul>
+                            <li>Thrust + 20 %</li>
+                            <li>Rotation speed + 0.5</li>
                         </ul>
                     </li>
                     <li>Ship Reactor:
@@ -160,14 +210,24 @@
                             <li>Energy Recharge + 2/s</li>
                         </ul>
                     </li>
+                    <li>Shield:
+                        <ul>
+                            <li>Shield Capacity + 1</li>
+                            <li>Shield Recharge + 0.1/s</li>
+                            <li class="negativeTrait">Shield Energy Consumption + 3/s<li>
+                        </ul>
+                    </li>
+
                 </ul>
                 <span>Cost: <span id="costDisplay">NaN</span> score</span>
+                <div>
                 <button onclick="upgrade(1)">
-                    UPGRADE SHIP
+                    UPGRADE 1
                 </button>
                 <button onclick="upgrade(2)">
-                    UPGRADE SHIP
+                    UPGRADE 2
                 </button>
+            </div>
             </div>
         </div>
         <div id="loadingScreen">

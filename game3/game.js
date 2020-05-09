@@ -22,8 +22,13 @@ function Player(id) {
 	this.energy=100;
 	this.maxEnergy=100;
 	this.energyRecharge=10;
+	this.shield=3;
+	this.maxShield=3;
+	this.shieldRecharge=.4;
+	this.shieldEnergyCost=20;
 	this.shieldEnabled= true;
 	this.shipID = 0;
+	this.score = 0;
 	//this.ship = ships[0];
 };
 
@@ -152,7 +157,7 @@ function Sound(src) {
 
 //#region INIT VARIABLES
 
-
+var shieldColor = {r:30,g:150,b:200};
 
 var running = false;
 var connection;
@@ -253,7 +258,11 @@ var chatMessageArea = document.getElementById("chatMessageContainer");
 var chatInput = document.getElementById("chatInput");
 var chatSend = document.getElementById("chatSend");
 
+var leaderboardElement = document.getElementById("leaderboard");
+
 var menuOpen = false;
+
+var leaderboardOpen = false;
 
 var upgradeCost = 1;
 
@@ -290,7 +299,6 @@ var shieldEnabled = true;
 
 var enemyCount = 0;
 var maxEnemyCount = 0;
-var score = 0;
 
 var enemySpawnTimer = 0;
 
@@ -332,7 +340,6 @@ var maxPingTimeout = 15;*/
 
 var playerName = getQueryVariable("name");
 var playerColor = JSON.parse(getQueryVariable("color"));
-
 
 //setInterval(update, 1000 / fps);
 update();
@@ -427,12 +434,24 @@ function keyDown(event) {
 			messages[i].style.display = "block"; 
 			}*/
 		}
+		else if (key == "TAB"){
+			event.preventDefault();
+			leaderboardOpen = !leaderboardOpen;
+			if(leaderboardOpen){
+				
+				refreshLeaderboard();
+			}
+			else {
+				leaderboardElement.style.maxHeight="30px";
+				leaderboardElement.style.opacity=".2";
+			}
+		}
 	}
 	if (key == "ESCAPE") {
 		menuOpen = !menuOpen;
 		if(menuOpen){
 			menu.style.display="flex";
-			scoreDisplay.innerHTML = score;
+			scoreDisplay.innerHTML = localPlayer.score;
 			costDisplay.innerHTML = upgradeCost;
 			if(localPlayer.shipID < playerImageCount){
 				shipNameDisplay.innerHTML = shipName[localPlayer.shipID];
@@ -615,6 +634,8 @@ function onConnectionMessage(messageRaw) {
 				addChatMessage("Player " + message.name + " joined the game.",null,newPlayer.color);
 
 				sendPlayerData();
+				if(leaderboardOpen)
+					refreshLeaderboard();
 			}
 		}
 		if (message.subtype == "leaveUser") {
@@ -624,6 +645,8 @@ function onConnectionMessage(messageRaw) {
 				console.log("Leave player: " + message.data + ", UserID: " + localPlayer.id);
 				//removePlayer(message.data);
 				removeIDFromArray(players,message.data);
+				if(leaderboardOpen)
+					refreshLeaderboard();
 			}
 		}
 		if (message.subtype == "userID") {
@@ -693,8 +716,11 @@ function onConnectionMessage(messageRaw) {
 					player.speed = 0;
 					console.log("team of dead: " + player.team + " team of local: " + localPlayer.team);
 					if(messageData.killer == localPlayer.id){
-						score+=player.level+1;
+						localPlayer.score+=player.level+1;
+						sendScore();
 					}
+					if(leaderboardOpen)
+						refreshLeaderboard();
 					addChatMessage(player.name + " was killed by " + findPlayerWithID(messageData.killer).name,null,localPlayer.color);
 					removeIDFromArray(players,player.id);
 
@@ -715,9 +741,9 @@ function onConnectionMessage(messageRaw) {
 				if (messageContent.type == "hp") {
 					player.hp = messageData.hp;
 					player.maxHp = messageData.maxHp;
-					player.energy = messageData.energy;
-					player.maxEnergy = messageData.maxEnergy;
-					player.shieldEnabled = messageData.shield;
+					player.shield = messageData.shield;
+					player.maxShield = messageData.maxShield;
+					player.shieldEnabled = messageData.shieldEnabled;
 					//player.level = messageData.level;
 					
 
@@ -732,6 +758,12 @@ function onConnectionMessage(messageRaw) {
 				if (messageContent.type == "name") {
 					
 					player.name = messageData.name;
+					
+
+				}
+				if (messageContent.type == "score") {
+					
+					player.score = messageData.score;
 					
 
 				}
@@ -785,6 +817,7 @@ function sendPlayerData() {
 	sendHP();
 	sendName();
 	sendLevel();
+	sendScore();
 }
 
 function sendProjectile(pos,rot,velocity,shooter,dmg) {
@@ -796,12 +829,16 @@ function sendDeath(id,killer) {
 	connection.send(JSON.stringify({ type: "death", data: JSON.stringify({id:id,killer:killer}) }));
 	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
 }
+function sendScore() {
+	connection.send(JSON.stringify({ type: "score", data: JSON.stringify({score:localPlayer.score}) }));
+	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
+}
 function sendHit(id,pid,shield) {
 	connection.send(JSON.stringify({ type: "hit", data: JSON.stringify({id:id, projectileID:pid,shield:shield}) }));
 	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
 }
 function sendHP(){
-	connection.send(JSON.stringify({ type: "hp", data: JSON.stringify({hp:localPlayer.hp,maxHp:localPlayer.maxHp,energy:localPlayer.energy,maxEnergy:localPlayer.maxEnergy,shield:shieldEnabled}) }));
+	connection.send(JSON.stringify({ type: "hp", data: JSON.stringify({hp:localPlayer.hp,maxHp:localPlayer.maxHp,shield:localPlayer.shield,maxShield:localPlayer.maxShield,shieldEnabled:shieldEnabled}) }));
 }
 function sendLevel(){
 	connection.send(JSON.stringify({ type: "level", data: JSON.stringify({level:localPlayer.level,size:localPlayer.size,shipID:localPlayer.shipID}) }));
@@ -1027,9 +1064,9 @@ function addChatMessage(text,player,color){
 }
 
 function upgrade(choice){
-	if(score >= upgradeCost){
+	if(localPlayer.score >= upgradeCost){
 		if(localPlayer.shipID == 0 || (localPlayer.shipID <= 5 && choice == 1) || (localPlayer.shipID > 5 && choice == 2)){
-		score-=upgradeCost;
+		localPlayer.score-=upgradeCost;
 		upgradeCost++;
 		localPlayer.thrust+=200;
 		localPlayer.rotationSpeed += 0.5;
@@ -1039,7 +1076,11 @@ function upgrade(choice){
 		localPlayer.level++;
 		localPlayer.maxEnergy+=20;
 		localPlayer.energyRecharge+=2;
-		scoreDisplay.innerHTML = score;
+		localPlayer.maxShield+=1;
+		localPlayer.shield+=1;
+		localPlayer.shieldRecharge+=.1;
+		localPlayer.shieldEnergyCost+=3;
+		scoreDisplay.innerHTML = localPlayer.score;
 		costDisplay.innerHTML = upgradeCost;
 
 
@@ -1087,9 +1128,11 @@ function upgrade(choice){
 			localPlayer.trails=[new Trail(localPlayer,{x:-20,y:0}),new Trail(localPlayer,{x:-16,y:-20}),new Trail(localPlayer,{x:-16,y:20}),new Trail(localPlayer,{x:-23,y:-47}),new Trail(localPlayer,{x:-23,y:47})];
 		}
 		sendLevel();
+		sendScore();
 	}
 	}
 }
+
 
 //#endregion
 
@@ -1309,11 +1352,18 @@ function update(timestamp) {
 				ctx.fillText("(R) turn on shields", canvas.width/2, canvas.height - 140);
 			}*/
 			ctx.fillStyle = CSScolor({r:80,g:80,b:80});
-				ctx.fillText("Kills: " + score, canvas.width/2, canvas.height - 60);
+				ctx.fillText("Kills: " + localPlayer.score, canvas.width/2, canvas.height - 60);
 
 				drawKeyPrompt(keyIDs.inertialDampening,150,450,inertialDampening);
 				drawKeyPrompt(keyIDs.alternativeControls,285,480,!alternativeControls);
 				drawKeyPrompt(keyIDs.shieldEnabled,420,450,shieldEnabled);
+				
+				drawWarning("Losing Energy",80,230,(localPlayer.energyRecharge < localPlayer.shieldEnergyCost && shieldEnabled && localPlayer.shield < localPlayer.maxShield));
+				drawWarning("Low Energy",80,290,(localPlayer.energy < localPlayer.maxEnergy / 5));
+
+				drawWarning("Low Shield",500,230,(localPlayer.shield < 2 && shieldEnabled));
+				drawWarning("Low HP",500,290,(localPlayer.hp < 3));
+				
 
 				
 			
@@ -1333,21 +1383,26 @@ function update(timestamp) {
 
 		//#region GAUGES
 		
-		if(localPlayer.maxHp < 200)
-		ctx.setLineDash([(2*(pointerDistance - 5)*Math.PI/4)/(localPlayer.maxHp)-5, 5]);
-		else
-		ctx.setLineDash([]);
+			//HP BG
+			if(localPlayer.maxHp < 200)
+				ctx.setLineDash([(2*(pointerDistance - 5)*Math.PI/4)/(localPlayer.maxHp)-5, 5]);
+			else
+				ctx.setLineDash([]);
 			ctx.beginPath();
-			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(0.25),Math.PI *(1.75),true);
+			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 15,Math.PI*(0.25),Math.PI *(1.75),true);
 			ctx.stroke();
+
+			//COOLDOWN BG
 			ctx.setLineDash([]);
 			ctx.beginPath();
 			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI*(0.75),Math.PI *(1.25));
 			ctx.stroke();
+
+			//ENERGY BG
 			if(localPlayer.maxEnergy < 300)
-		ctx.setLineDash([(2*(pointerDistance - 15)*Math.PI/4)/(localPlayer.maxEnergy/5)-5, 5]);
-		else
-		ctx.setLineDash([]);
+				ctx.setLineDash([(2*(pointerDistance - 15)*Math.PI/4)/(localPlayer.maxEnergy/5)-5, 5]);
+			else
+				ctx.setLineDash([]);
 			ctx.beginPath();
 			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 15,Math.PI*(0.75),Math.PI *(1.25));
 			ctx.stroke();
@@ -1356,15 +1411,30 @@ function update(timestamp) {
 			//HP
 
 			if(localPlayer.maxHp < 40)
-		ctx.setLineDash([(2*(pointerDistance - 5)*Math.PI/4)/(localPlayer.maxHp)-5, 5]);
-		else
-		ctx.setLineDash([]);
+				ctx.setLineDash([(2*(pointerDistance - 5)*Math.PI/4)/(localPlayer.maxHp)-5, 5]);
+			else
+				ctx.setLineDash([]);
 			ctx.strokeStyle=CSScolor(localPlayer.color);
 
 			ctx.beginPath();
-			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI *(0.25),Math.PI*(1.75 - 0.001 + 0.5 * (1-(localPlayer.hp / localPlayer.maxHp))),true);
+			ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 15,Math.PI *(0.25),Math.PI*(1.75 - 0.001 + 0.5 * (1-(localPlayer.hp / localPlayer.maxHp))),true);
 			ctx.stroke();
 			ctx.setLineDash([]);
+
+			//SHIELD
+
+			if(shieldEnabled){
+				if(localPlayer.maxShield < 40)
+					ctx.setLineDash([(2*(pointerDistance - 5)*Math.PI/4)/(localPlayer.maxShield), 5]);
+				else
+					ctx.setLineDash([]);
+				
+				ctx.strokeStyle=CSScolorAlpha(shieldColor,.8);
+				ctx.beginPath();
+				ctx.arc(canvas.width/2, canvas.height/2,pointerDistance - 5,Math.PI *(0.25),Math.PI*(1.75 - 0.001 + 0.5 * (1-(localPlayer.shield / localPlayer.maxShield))),true);
+				ctx.stroke();
+				ctx.setLineDash([]);
+			}
 
 			//COOLDOWN
 
@@ -1438,17 +1508,19 @@ function update(timestamp) {
 		//#endregion
 
 		//#region ENEMY SPAWNING
+		
 		if(enemyCount < maxEnemyCount){
 			enemySpawnTimer+= deltaTime;
 			if(enemySpawnTimer > 5){
-				var aip = addPlayer(true);
+				/*var aip = addPlayer(true);
 				aip.team = 2;
 				enemyCount++;
-				enemySpawnTimer = 0;
+				enemySpawnTimer = 0;*/
 			}
 		}
 		
 		enemyCooldown -= deltaTime;
+		
 		
 		//#endregion
 		
@@ -1516,8 +1588,14 @@ function update(timestamp) {
 			if(weaponCooldown == 0){
 				localPlayer.energy+= localPlayer.energyRecharge*deltaTime;
 				if(localPlayer.energy > localPlayer.maxEnergy) localPlayer.energy = localPlayer.maxEnergy;
-				localPlayer.hp += .1 * deltaTime;
+				localPlayer.hp += .01 * deltaTime;
 				if(localPlayer.hp > localPlayer.maxHp) localPlayer.hp = localPlayer.maxHp;
+			}
+			if(shieldEnabled && localPlayer.shield < localPlayer.maxShield && localPlayer.energy >= (localPlayer.shieldEnergyCost*deltaTime)){
+				localPlayer.energy-= localPlayer.shieldEnergyCost*deltaTime;
+				localPlayer.shield += localPlayer.shieldRecharge *deltaTime;
+				if(localPlayer.shield > localPlayer.maxShield) localPlayer.shield = localPlayer.maxShield;
+
 			}
 		}
 		//#endregion
@@ -1526,12 +1604,13 @@ function update(timestamp) {
 		for(var i = 0;i<players.length;i++){
 			var p = players[i];
 			if(p.ai && p.hp > 0){
-				rotateToTarget(p,localPlayer);
+				rotateToTarget(p,{pos:predictTargetPos(p,localPlayer,1000)});
 
 				var distance = distancePos(localPlayer, p);
 
-				var slowingDistance = 500;
-				var stoppingDistance = 200;
+				var slowingDistance = 700;
+				var stoppingDistance = 400;
+				var targetThrust = 0;
 
 				if(distance > slowingDistance){
 					targetThrust = 1;
@@ -1543,9 +1622,9 @@ function update(timestamp) {
 					targetThrust = (distance - stoppingDistance) / (slowingDistance - stoppingDistance);
 				}
 
-				p.velocity.x = Math.cos(p.rot) * 1 * p.speed * deltaTime * targetThrust;
-				p.velocity.y = Math.sin(p.rot) * 1 * p.speed * deltaTime * targetThrust;
-				if(enemyCooldown <=0){
+				p.pos.x += Math.cos(p.rot) * 1 * p.speed * deltaTime * targetThrust;
+				p.pos.y += Math.sin(p.rot) * 1 * p.speed * deltaTime * targetThrust;
+				if(enemyCooldown <=0 && distance < 2000){
 					shootProjectile(p);
 					}
 			}
@@ -1586,7 +1665,7 @@ function update(timestamp) {
 
 					//PREDICT POS
 					if(p.id != localPlayer.id){
-						var predictedPos = predictTargetPos(localPlayer,p,2000);
+						var predictedPos = predictTargetPos(localPlayer,p,1500);
 						ctx.strokeStyle=CSScolorAlpha({r:255,g:255,b:255},.2);
 						ctx.beginPath();
 						ctx.arc(predictedPos.x, predictedPos.y,10,0,Math.PI*2);
@@ -1619,10 +1698,10 @@ function update(timestamp) {
 
 					if(p.shieldEnabled){
 
-						var shieldColor = {r:30,g:150,b:200}
-						ctx.lineWidth = 3 * (p.energy/p.maxEnergy);
-						ctx.strokeStyle=CSScolorAlpha(shieldColor,.8 * (p.energy/p.maxEnergy));
-						ctx.fillStyle=CSScolorAlpha(shieldColor,.2 * (p.energy/p.maxEnergy));
+						var shieldRatio = p.shield/p.maxShield;
+						ctx.lineWidth = 3 * (shieldRatio);
+						ctx.strokeStyle=CSScolorAlpha(shieldColor,.8 * (shieldRatio));
+						ctx.fillStyle=CSScolorAlpha(shieldColor,.2 * (shieldRatio));
 						ctx.beginPath();
 						ctx.arc(p.pos.x, p.pos.y,p.size/2 + 10,0,Math.PI*2);
 						ctx.stroke();
@@ -1759,15 +1838,23 @@ function update(timestamp) {
 						if(player.hp > 0 && player.team != p.shooter.team){
 							if(p.pos.x < player.hitbox[1].x && p.pos.x > player.hitbox[0].x){
 								if(p.pos.y < player.hitbox[3].y && p.pos.y > player.hitbox[0].y){
-									player.hp -= 1;
-									soundHit.play(.15);
+									if(player.shieldEnabled && player.shield >= 1){
+										player.shield-=1;
+										soundShieldHit.play(.2);
+										/*weaponCooldown=.5;
+										cooldownStart=.5;*/
+									}
+									else{
+										player.hp -= 1;
+										soundHit.play(.15);
+									}
 									if(player.hp <= 0){
 										player.hp = 0;
 										//PLAYER DEATH
 										createExplosion(p.pos.x,p.pos.y,20);
 										player.speed = 0;
 										enemyCount--;
-										score++;
+										localPlayer.score++;
 										removeIDFromArray(players,player.id);
 									}
 									createExplosion(p.pos.x,p.pos.y,1);
@@ -1786,8 +1873,8 @@ function update(timestamp) {
 					if(player.hp > 0 && player.id != p.shooter.id){
 						if(p.pos.x < player.hitbox[1].x && p.pos.x > player.hitbox[0].x){
 							if(p.pos.y < player.hitbox[3].y && p.pos.y > player.hitbox[0].y){
-								if(shieldEnabled && player.energy >= 20){
-									player.energy-=20;
+								if(player.shieldEnabled && player.shield >= 1){
+									player.shield-=1;
 									soundShieldHit.play(.2);
 									sendHit(player.id, p.id,true);
 									/*weaponCooldown=.5;
@@ -1936,7 +2023,7 @@ function update(timestamp) {
 				ctx.fillStyle = CSScolor({r:80,g:80,b:80});
 				ctx.fillText("Game over. No restart button yet. Sorry.", canvas.width/2, canvas.height/2);
 				ctx.fillStyle = CSScolor({r:80,g:80,b:80});
-				ctx.fillText("Score: " + score, canvas.width/2, canvas.height/2 + 40);
+				ctx.fillText("Score: " + localPlayer.score, canvas.width/2, canvas.height/2 + 40);
 				running = false;
 			}
 			else gameOverScreenTimeout -= deltaTime;
@@ -1954,6 +2041,52 @@ function update(timestamp) {
 //#endregion
 
 //#region GAME UTLITY FUNCTIONS
+
+function generateLeaderboard(){
+	var tempScores = new Array (10);
+	tempScores.fill(-1);
+
+	var usedIDs = new Array(10);
+	usedIDs.fill(-1);
+
+	var con = true;
+
+	for(var t = 0; t < tempScores.length; t++){
+		for (var i = 0; i < players.length; i++) {
+			if(players[i].score > tempScores[t]){
+				con=true;
+				for(var u=0;u<t;u++){
+					if(usedIDs[u] == players[i].id){
+						con = false;
+					}
+				}
+				if(con){
+					tempScores[t] = players[i].score;
+					usedIDs[t] = players[i].id;
+				}
+			}
+		}
+	}
+	return usedIDs;
+}
+
+function refreshLeaderboard(){
+	var h = 20*(players.length)+50;
+	if (h>300) h=300;
+	leaderboardElement.style.maxHeight=(h+"px");
+	leaderboardElement.style.opacity=".6";
+	var list = document.getElementById("leaderboardList");
+	var lb = generateLeaderboard();
+	list.innerHTML = null;
+	for(var i = 0; i < lb.length; i++){
+		if(lb[i]!= -1){
+			var li = list.appendChild(document.createElement("LI"));
+			var p = findPlayerWithID(lb[i])
+			li.innerHTML=p.name + " - " + p.score;
+			li.style.color=CSScolor(p.color);
+		}
+	}
+}
 
 function screenToWorldCoords(screenPos){
 	var worldPos = {x:screenPos.x,y:screenPos.y};
@@ -2094,6 +2227,33 @@ function drawKeyPrompt(id,x,y,toggle){
 		ctx.strokeRect(pos.x,pos.y+50,30,30);
 	}
 	ctx.fillText(keys[id],pos.x+15,pos.y+71);
+	ctx.globalAlpha = 1;
+	ctx.font = "20px Century Gothic";
+}
+
+function drawWarning(text,x,y,toggle){
+	var pos = {
+		x:canvas.width/2-pointerDistance+x,
+		y:canvas.height/2-pointerDistance+y
+	}
+	ctx.font = "bold 20px Century Gothic";
+	ctx.strokeStyle="red";
+	ctx.fillStyle="red";
+	ctx.globalAlpha=.5;
+	ctx.lineWidth=2;
+	//ctx.drawImage(icons[id],pos.x-10,pos.y,50,50);
+
+	if(toggle != null && toggle){
+		//ctx.fillRect(pos.x,pos.y,30,30);
+		ctx.fillStyle="black";
+		ctx.globalAlpha = 1;
+		
+		//ctx.strokeRect(pos.x,pos.y,30,30);
+		ctx.fillStyle="red";
+		ctx.fillText(text,pos.x+15,pos.y+45);
+		ctx.font = "30px Century Gothic";
+		ctx.fillText("⚠",pos.x+15,pos.y+20);
+	}
 	ctx.globalAlpha = 1;
 	ctx.font = "20px Century Gothic";
 }
