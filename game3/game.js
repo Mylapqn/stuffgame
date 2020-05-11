@@ -157,6 +157,8 @@ function Sound(src) {
 
 //#region INIT VARIABLES
 
+
+
 var shieldColor = {r:30,g:150,b:200};
 
 var running = false;
@@ -949,13 +951,15 @@ function shootProjectile(shooter){
 	p.lifetime = randomFloat(0.9,1,1);
 	soundLaser.play(.3);*/
 
-	var pv = {x:shooter.velocity.x,y:shooter.velocity.y};
-	if(shooter.ai) console.log("pv",pv);
+		var pv = {x:shooter.velocity.x,y:shooter.velocity.y};
+		if(shooter.ai) console.log("pv",pv);
+	
+		pv.x += Math.cos(shooter.rot) * 1500;
+		pv.y += Math.sin(shooter.rot) * 1500;
+		sendProjectile(shooter.pos,shooter.rot,pv,shooter.id,1);
 
-	pv.x += Math.cos(shooter.rot) * 1500;
-	pv.y += Math.sin(shooter.rot) * 1500;
-	sendProjectile(shooter.pos,shooter.rot,pv,shooter.id,1);
 }
+
 
 function spawnProjectile(pos,rot,velocity,shooterID,dmg){
 	var shooter = findPlayerWithID(shooterID);

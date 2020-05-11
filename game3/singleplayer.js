@@ -139,7 +139,7 @@ var playerHeight = 100;
 var playerWidth = 100;
 
 var playerImage = new Image();
-playerImage.src = 'images/player.png';
+playerImage.src = 'images/player0.png';
 
 console.log(playerImage);
 
