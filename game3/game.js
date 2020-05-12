@@ -340,6 +340,9 @@ var maxPingTimeout = 15;*/
 
 //#region INIT FUNCTION CALLS
 
+
+window.onbeforeunload = onGameExit;
+
 var playerName = getQueryVariable("name");
 var playerColor = JSON.parse(getQueryVariable("color"));
 
@@ -590,14 +593,19 @@ function onConnectionMessage(messageRaw) {
 					console.log(cookie);
 					alert(cookie);
 				}
-				else{
-					document.cookie = "kok=koks";
-					alert("new cok: " + document.cookie);
-				}
 
 				if(playerName){
 					localPlayer.name = playerName;
 					connection.send(JSON.stringify({ type: "technical", subtype:"initData", name: playerName, color: playerColor}));
+				}
+				else if (cookie != "") {
+					var n = getCookie("playerName");
+					if(n != ""){
+						playerName = n;
+						localPlayer.name = playerName;
+						connection.send(JSON.stringify({ type: "technical", subtype:"initData", name: playerName, color: playerColor}));
+					}
+
 				}
 
 				localPlayer.color = playerColor;
@@ -2281,6 +2289,7 @@ function drawWarning(text,x,y,toggle){
 
 
 
+
 function invertColor(color) {
 	var inverted = {
 		r: 255 - color.r,
@@ -2402,4 +2411,39 @@ function loadJSON(path){
 	xhr.open("GET",path,true);
 	xhr.send();
 }
+
+function onGameExit(){
+	console.log("er");
+	if(running){
+		connection.send(JSON.stringify({ type: "chat", data: JSON.stringify({text:"Bye"})}));
+		setCookie("playerScore", localPlayer.score, 90);
+		setCookie("playerLevel", localPlayer.level, 90);
+		setCookie("playerName", localPlayer.name, 90);
+	}
+	return null;
+}
+
+function setCookie(name, value, duration) {
+	var d = new Date();
+	d.setTime(d.getTime() + (duration * 24 * 60 * 60 * 1000));
+	var expires = "expires="+d.toUTCString();
+	document.cookie = name + "=" + value + ";" + expires + ";path=/";
+  }
+  
+function getCookie(name) {
+	var fname = name + "=";
+	var decodedCookie = decodeURIComponent(document.cookie);
+	var ca = decodedCookie.split(';');
+	for(var i = 0; i < ca.length; i++) {
+	  var c = ca[i];
+	  while (c.charAt(0) == ' ') {
+		c = c.substring(1);
+	  }
+	  if (c.indexOf(fname) == 0) {
+		return c.substring(name.length, c.length);
+	  }
+	}
+	return "";
+  }
+
 //#endregion
