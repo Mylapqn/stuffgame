@@ -590,8 +590,8 @@ function onConnectionMessage(messageRaw) {
 
 				var cookie = document.cookie;
 				if(cookie != ""){
-					console.log(cookie);
-					alert(cookie);
+					console.log("Found Cookie: " + cookie);
+					//alert(cookie);
 				}
 
 				if(playerName){
@@ -856,7 +856,7 @@ function sendPlayerData() {
 
 function sendProjectile(pos,rot,velocity,shooter,dmg) {
 	connection.send(JSON.stringify({ type: "shoot", data: JSON.stringify({pos:JSON.stringify(pos),rot:rot,velocity:JSON.stringify(velocity),shooter:shooter,dmg:dmg}) }));
-	console.log("sending shoot from ID " + shooter);
+	//console.log("sending shoot from ID " + shooter);
 }
 
 function sendDeath(id,killer) {
@@ -1003,7 +1003,7 @@ function spawnProjectile(pos,rot,velocity,shooterID,dmg){
 	p.velocity.x = velocity.x;
 	p.velocity.y = velocity.y;
 	p.damage = dmg;
-	console.log("shooting",velocity,p.velocity);
+	//console.log("shooting",velocity);
 
 	
 
