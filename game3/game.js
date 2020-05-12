@@ -584,17 +584,30 @@ function onConnectionMessage(messageRaw) {
 				console.log("Init message received");
 				//addPlayer(message.data);
 				localPlayer = addPlayer(false);
-				if(playerName){
-				localPlayer.name = playerName;
-				connection.send(JSON.stringify({ type: "technical", subtype:"initData", name: playerName, color: playerColor}));
+
+				var cookie = document.cookie;
+				if(cookie != ""){
+					console.log(cookie);
+					alert(cookie);
 				}
+				else{
+					document.cookie = "kok=koks";
+					alert("new cok: " + document.cookie);
+				}
+
+				if(playerName){
+					localPlayer.name = playerName;
+					connection.send(JSON.stringify({ type: "technical", subtype:"initData", name: playerName, color: playerColor}));
+				}
+
 				localPlayer.color = playerColor;
+
 				document.documentElement.style.setProperty('--playerColor', CSScolor(localPlayer.color ));
+
 				if(colorLuminance(localPlayer.color) > 128)
 					document.documentElement.style.setProperty('--textColor',"black");
 				else
 					document.documentElement.style.setProperty('--textColor',"white");
-				
 				
 				console.log("Added Local Player with ID " + localPlayer.id);
 				/*sendPos();
