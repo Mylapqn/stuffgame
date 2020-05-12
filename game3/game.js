@@ -21,12 +21,13 @@ function Player(id) {
 	this.size = 100;
 	this.energy=100;
 	this.maxEnergy=100;
-	this.energyRecharge=10;
+	this.energyRecharge=15;
 	this.shield=3;
 	this.maxShield=3;
 	this.shieldRecharge=.4;
 	this.shieldEnergyCost=20;
 	this.shieldEnabled= true;
+	this.engineEnergyCost=5;
 	this.shipID = 0;
 	this.score = 0;
 	//this.ship = ships[0];
@@ -157,6 +158,9 @@ function Sound(src) {
 
 //#region INIT VARIABLES
 
+var sliderEngine = document.getElementById("sliderEngine");
+var sliderWeapons = document.getElementById("sliderWeapons");
+var sliderShields = document.getElementById("sliderShields");
 
 
 var shieldColor = {r:30,g:150,b:200};
@@ -363,6 +367,7 @@ connect();
 
 //#region INPUT
 
+
 var mousePos = {x:0,y:0};
 
 gameArea.onmousemove = mouseMove;
@@ -450,6 +455,9 @@ function keyDown(event) {
 				leaderboardElement.style.maxHeight="30px";
 				leaderboardElement.style.opacity=".2";
 			}
+		}
+		else if (key=="P"){
+			maxEnemyCount++;
 		}
 	}
 	if (key == "ESCAPE") {
@@ -587,6 +595,7 @@ function onConnectionMessage(messageRaw) {
 				console.log("Init message received");
 				//addPlayer(message.data);
 				localPlayer = addPlayer(false);
+				console.log(localPlayer.color);
 
 				var cookie = document.cookie;
 				if(cookie != ""){
@@ -594,18 +603,24 @@ function onConnectionMessage(messageRaw) {
 					//alert(cookie);
 				}
 
+				if(playerColor)
+					localPlayer.color = playerColor;
+
 				if(playerName){
 					localPlayer.name = playerName;
-					connection.send(JSON.stringify({ type: "technical", subtype:"initData", name: playerName, color: playerColor}));
+					connection.send(JSON.stringify({ type: "technical", subtype:"initData", name: playerName, color: localPlayer.color}));
 				}
 				else if (cookie != "") {
 					var n = getCookie("playerName");
 					if(n != ""){
 						playerName = n;
 						localPlayer.name = playerName;
-						connection.send(JSON.stringify({ type: "technical", subtype:"initData", name: playerName, color: playerColor}));
+						connection.send(JSON.stringify({ type: "technical", subtype:"initData", name: playerName, color: localPlayer.color}));
 					}
 
+				}
+				else {
+					connection.send(JSON.stringify({ type: "technical", subtype:"initData", name: localPlayer.name, color: localPlayer.color}));
 				}
 
 				if(cookie!=""){
@@ -618,8 +633,7 @@ function onConnectionMessage(messageRaw) {
 						localPlayer.level = parseInt(cookieLevel);
 					}
 				}
-
-				localPlayer.color = playerColor;
+				
 
 				document.documentElement.style.setProperty('--playerColor', CSScolor(localPlayer.color ));
 
@@ -1246,14 +1260,16 @@ function update(timestamp) {
 		else {
 			rotateToTarget(localPlayer,{pos:mouseWorldPos});
 
-			if(inputVelocity != 0 && localPlayer.hp > 0){
-				localPlayer.velocity.x += Math.cos(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
-				localPlayer.velocity.y += Math.sin(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
-			}
-			if(inputRotation!= 0 && localPlayer.hp > 0){
-				localPlayer.velocity.x -= Math.sin(localPlayer.rot) * inputRotation * localPlayer.thrust * deltaTime;
-				localPlayer.velocity.y += Math.cos(localPlayer.rot) * inputRotation * localPlayer.thrust * deltaTime;
-			}
+			//if(localPlayer.energy > localPlayer.engineEnergyCost * deltaTime * sliderEngine.value){
+				if(inputVelocity != 0 && localPlayer.hp > 0){
+					localPlayer.velocity.x += Math.cos(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime * sliderEngine.value;
+					localPlayer.velocity.y += Math.sin(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime * sliderEngine.value;
+				}
+				if(inputRotation!= 0 && localPlayer.hp > 0){
+					localPlayer.velocity.x -= Math.sin(localPlayer.rot) * inputRotation * localPlayer.thrust * deltaTime * sliderEngine.value;
+					localPlayer.velocity.y += Math.cos(localPlayer.rot) * inputRotation * localPlayer.thrust * deltaTime * sliderEngine.value;
+				}
+			//}
 			if (inputVelocity == 0 && inputRotation == 0 && inertialDampening) {
 				localPlayer.velocity.x *= 1 - .5 * deltaTime;
 				localPlayer.velocity.y *= 1 - .5 * deltaTime;
@@ -1548,10 +1564,10 @@ function update(timestamp) {
 		if(enemyCount < maxEnemyCount){
 			enemySpawnTimer+= deltaTime;
 			if(enemySpawnTimer > 5){
-				/*var aip = addPlayer(true);
+				var aip = addPlayer(true);
 				aip.team = 2;
 				enemyCount++;
-				enemySpawnTimer = 0;*/
+				enemySpawnTimer = 0;
 			}
 		}
 		
@@ -1571,8 +1587,18 @@ function update(timestamp) {
 
 		//#region LOCAL SHOOTING
 
+		//if(weaponCooldown == 0){
+			localPlayer.energy+= localPlayer.energyRecharge*deltaTime;
+			if(localPlayer.energy > localPlayer.maxEnergy) localPlayer.energy = localPlayer.maxEnergy;
+			if(localPlayer.hp > 0)localPlayer.hp += .01 * deltaTime;
+			if(localPlayer.hp > localPlayer.maxHp) localPlayer.hp = localPlayer.maxHp;
+		//}
 
-		weaponCooldown-=deltaTime;
+		if(weaponCooldown > 0 && localPlayer.energy >= 30*deltaTime * sliderWeapons.value){
+			weaponCooldown-=deltaTime * sliderWeapons.value;
+			localPlayer.energy-=30*deltaTime*sliderWeapons.value;
+		}
+
 		if(weaponCooldown<0){
 			weaponCooldown = 0;
 		}
@@ -1580,7 +1606,7 @@ function update(timestamp) {
 
 		if(localPlayer.hp > 0){
 			if(shooting){
-				if(weaponCooldown<=0 && localPlayer.energy >= 5){
+				if(weaponCooldown<=0/* && localPlayer.energy >= 5*sliderWeapons.value*/){
 					//SHOOTING LAG MITIGATION
 					p.pos.x += 3 * p.velocity.x * deltaTime;
 					p.pos.y += 3 * p.velocity.y * deltaTime;
@@ -1589,7 +1615,7 @@ function update(timestamp) {
 					
 					//SHOOTING LAG MITIGATION
 
-					localPlayer.energy-=5;
+					//localPlayer.energy-=5*sliderWeapons.value;
 					p.pos.x -= 3 * p.velocity.x * deltaTime;
 					p.pos.y -= 3 * p.velocity.y * deltaTime;
 					weaponCooldown = maxCooldown;
@@ -1621,18 +1647,16 @@ function update(timestamp) {
 				}
 			}
 			}
-			if(weaponCooldown == 0){
-				localPlayer.energy+= localPlayer.energyRecharge*deltaTime;
-				if(localPlayer.energy > localPlayer.maxEnergy) localPlayer.energy = localPlayer.maxEnergy;
-				localPlayer.hp += .01 * deltaTime;
-				if(localPlayer.hp > localPlayer.maxHp) localPlayer.hp = localPlayer.maxHp;
-			}
-			if(shieldEnabled && localPlayer.shield < localPlayer.maxShield && localPlayer.energy >= (localPlayer.shieldEnergyCost*deltaTime)){
-				localPlayer.energy-= localPlayer.shieldEnergyCost*deltaTime;
-				localPlayer.shield += localPlayer.shieldRecharge *deltaTime;
+			
+			if(shieldEnabled && localPlayer.shield < localPlayer.maxShield && localPlayer.energy >= (localPlayer.shieldEnergyCost*deltaTime*sliderShields.value)){
+				localPlayer.energy-= localPlayer.shieldEnergyCost*deltaTime*sliderShields.value;
+				localPlayer.shield += localPlayer.shieldRecharge *deltaTime*sliderShields.value;
 				if(localPlayer.shield > localPlayer.maxShield) localPlayer.shield = localPlayer.maxShield;
 
 			}
+			localPlayer.energy -= localPlayer.engineEnergyCost * sliderEngine.value * deltaTime;
+
+			if(localPlayer.energy < 0) localPlayer.energy=0;
 		}
 		//#endregion
 

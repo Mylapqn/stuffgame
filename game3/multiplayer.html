@@ -152,6 +152,26 @@
             overflow:hidden;
         }
 
+        .energySlider{
+            appearance: none;
+            -webkit-appearance: none;
+            height:10px;
+            margin-top:20px;
+            margin-bottom:20px;
+            margin-right:5px;
+            /*border:1px solid red;*/
+            background:rgb(128, 128, 133);
+            border:5px solid rgb(100, 100, 104);
+            background:linear-gradient(90deg,gray,gray,rgb(219, 50, 50));
+        }
+        .energySlider::-webkit-slider-thumb {
+            appearance: none;
+            -webkit-appearance: none;
+            height:20px;
+            width:10px;
+            background:white;
+        }
+
         
         
     </style>
@@ -181,6 +201,13 @@
                 <li>Player</li>
                 <li>Player</li>
             </ol>
+        </div>
+
+        <div style="position:absolute;z-index:10;top:100px;left:20px;background:rgba(105, 105, 105, 0.26); display:flex;flex-direction: column;padding:10px;color:white;">
+            Energy Distribution
+            <span style="display:flex; align-items: center;"><input type="range" id="sliderEngine" class="energySlider"  min="0" max="2" step="0.1"> Engine</span>
+            <span style="display:flex; align-items: center;"><input type="range" id="sliderWeapons" class="energySlider" min="0" max="2" step="0.1"> Weapons</span>
+            <span style="display:flex; align-items: center;"><input type="range" id="sliderShields" class="energySlider" min="0" max="2" step="0.1"> Shields</span>
         </div>
 
         <div id="menu">
