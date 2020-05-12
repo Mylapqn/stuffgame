@@ -608,6 +608,17 @@ function onConnectionMessage(messageRaw) {
 
 				}
 
+				if(cookie!=""){
+					var cookieScore = getCookie("playerScore");
+					var cookieLevel = getCookie("playerLevel");
+					if(cookieScore!=""){
+						localPlayer.score = parseInt(cookieScore);
+					}
+					if(cookieLevel!=""){
+						localPlayer.level = parseInt(cookieLevel);
+					}
+				}
+
 				localPlayer.color = playerColor;
 
 				document.documentElement.style.setProperty('--playerColor', CSScolor(localPlayer.color ));
@@ -2440,7 +2451,7 @@ function getCookie(name) {
 		c = c.substring(1);
 	  }
 	  if (c.indexOf(fname) == 0) {
-		return c.substring(name.length, c.length);
+		return c.substring(fname.length, c.length);
 	  }
 	}
 	return "";
