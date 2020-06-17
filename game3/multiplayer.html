@@ -11,6 +11,7 @@
         :root{
             --playerColor:blue;
             --textColor:black;
+            --invertedTextColor:white;
         }
         body{
             font-family:"Century Gothic",Montserrat, sans-serif;
@@ -172,6 +173,95 @@
             background:white;
         }
 
+        #keySettings{
+            width:100vw;
+            height:100vh;
+            position:absolute;
+            top:0;
+            left:0;
+            z-index:11;
+            display:none;
+            align-items: center;
+            justify-content: flex-start;
+            flex-direction: column;
+            background:rgb(36, 36, 36);
+            overflow-y: auto;
+        }
+        #keySettingsList {
+            display:flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            width:80%;
+        }
+        .keySettingsItem{
+            padding:0;
+            margin:0;
+            flex-direction: row;
+            background:rgb(49, 49, 49);
+            height:100px;
+            width:60%;
+            /*border-top: 3px solid black;
+            border-bottom: 3px solid black;*/
+            display:flex;
+            align-items: center;
+        }
+        .keySettingsItem h1{
+            font-size: 1.5em;
+            color: var(--playerColor);
+            flex-grow: 0;
+            /*flex-basis: 300px;*/
+            line-height: 100px;
+            /*width:500px;*/
+            text-align: left;
+            padding:0;
+            margin:0;
+            margin-left:50px;
+            padding-right:50px;
+        }
+        .keySettingsItem .buttonContainer{
+            background:none;
+            border:none;
+            /*margin-left:auto;*/
+            text-align: center;
+            flex-grow: 0;
+            flex-shrink:0;
+            flex-basis: 50px;
+            width:300px;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right:25px;
+            margin-left:50px;
+            display:flex;
+        }
+        .keySettingsLine{
+            height:5px;
+            flex-grow:100;
+            flex-basis:0px;
+            background:rgb(218, 218, 218);
+        }
+        .keySettingsItem button{
+            font-weight: bold;
+            font-size: 30px;
+            color:var(--textColor);
+            font-family: inherit;
+            background:var(--playerColor);
+            border:none;
+            text-align: center;
+            /*width:50%;*/
+            min-width: 50px;
+            height:50px;
+            filter: brightness(1);
+            transition: background-color .1s, filter .2s;
+        }
+        .keySettingsItem button:hover{
+            filter: brightness(1.5);
+        }
+        .keySettingsItem button:focus{
+            outline: 5px solid var(--playerColor);
+            background:var(--invertedTextColor);
+        }
+
         
         
     </style>
@@ -212,6 +302,7 @@
 
         <div id="menu">
             <div class = "menuBackground">
+                <button onclick="openKeySettings()">⚙️Settings</button>
                 <h1>SHOP</h1>
                 <span>Score: <span id="scoreDisplay">NaN</span></span>
                 <br>
@@ -257,6 +348,19 @@
             </div>
             </div>
         </div>
+
+        <div id="keySettings">
+            <br>
+            <h1 style="color:white;">Key Bindings</h1>
+            <br>
+            <br>
+            <br>
+            <div id="keySettingsList">
+                <div class=keySettingsItem><h1>Forward</h1><div class="buttonContainer"><button class="keyAssign" onclick="keyAssign(this)" >W</button></div></div>
+            </div>
+            
+        </div>
+        
         <div id="loadingScreen">
             <div id="loadingCircle"><div></div><span>CONNECTING</span></div>
         </div>

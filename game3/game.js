@@ -158,6 +158,9 @@ function Sound(src) {
 
 //#region INIT VARIABLES
 
+var keyAssignVars = {waiting:false, screenOpen:false};
+var keySettingsHTML = document.getElementById("keySettings");
+
 var sliderEngine = document.getElementById("sliderEngine");
 var sliderWeapons = document.getElementById("sliderWeapons");
 var sliderShields = document.getElementById("sliderShields");
@@ -200,10 +203,6 @@ icons[0].src = "images/icons/inertialDampening.png";
 icons[1].src = "images/icons/shieldEnabled.png";
 icons[2].src = "images/icons/alternativeControls.png";
 
-var keys = [];
-keys[0] = "Q";
-keys[1] = "R";
-keys[2] = "E";
 
 var keyIDs = {};
 keyIDs.inertialDampening = 0;
@@ -367,6 +366,37 @@ connect();
 
 //#region INPUT
 
+var keyBindings = {
+	forward:"W",
+	backward:"S",
+	left:"A",
+	right:"D",
+	shoot:" ",
+	shootSecondary:"SHIFT",
+	switchControls:"E",
+	inertialDampening:"Q",
+	switchShield:"R",
+	constantDeltaTime:"T",
+	chat:"ENTER",
+	leaderboard:"TAB",
+	spawnEnemy:"M",
+};
+
+var keyBindNames = {
+	forward:"Forward",
+	backward:"Backward",
+	left:"Left",
+	right:"Right",
+	shoot:"Shoot",
+	shootSecondary:"Shoot Missile",
+	switchControls:"Alternative Controls",
+	inertialDampening:"Inertial Dampening",
+	switchShield:"Turn Shield On/Off",
+	constantDeltaTime:"[DEV] Constant Delta Time",
+	chat:"Chat",
+	leaderboard:"Show Leaderboard",
+	spawnEnemy:"[DEV] Spawn Enemy",
+};
 
 var mousePos = {x:0,y:0};
 
@@ -403,82 +433,102 @@ inputRotation = 0;
 function keyDown(event) {
 	var key = event.key.toUpperCase();
 	//console.log("key down: " + key);
-	if(document.activeElement != chatInput){
-	if(!menuOpen){
-		if (key == "W") {
-			inputVelocity = 1;
+	if(keyAssignVars.waiting){
+		event.preventDefault();
+		if(key == "ESCAPE" || key == keyBindings[keyAssignVars.key]){
+			finishKeyAssign();
 		}
-		else if (key == "D") {
-			inputRotation = 1;
+		else if (Object.values(keyBindings).indexOf(key) < 0 ) {
+			keyBindings[keyAssignVars.key]=key;
+			finishKeyAssign();
 		}
-		else if (key == "S") {
-			inputVelocity = -1;
-		}
-		else if (key == "A") {
-			inputRotation = -1;
-		}
-		else if (key == " ") {
-			shooting = true;
-		}
-		else if (key == "SHIFT") {
-			shootingSecondary = true;
-		}
-		else if (key == "E") {
-			if(shooting && !alternativeControls)  shooting = false;
-			alternativeControls = !alternativeControls;
-		}
-		else if (key == "Q") {
-			inertialDampening = !inertialDampening;
-		}
-		else if (key == "R") {
-			shieldEnabled = !shieldEnabled;
-			localPlayer.shieldEnabled = shieldEnabled;
-		}
-		else if (key == "T") {
-			constantDeltaTime = !constantDeltaTime;
-		}
-		else if (key == "ENTER") {
-			chatInput.focus();
-			/*var messages = document.getElementsByClassName('chatMessage');
-			for (var i = 0; i < messages.length; i++) {
-			messages[i].style.display = "block"; 
-			}*/
-		}
-		else if (key == "TAB"){
+	}
+	else if(document.activeElement != chatInput){
+		if(key == "TAB"){
 			event.preventDefault();
-			leaderboardOpen = !leaderboardOpen;
-			if(leaderboardOpen){
-				
-				refreshLeaderboard();
+		}
+		if(!menuOpen){
+			switch (key){
+				case keyBindings.forward:
+					inputVelocity = 1;
+					break;
+				case keyBindings.backward:
+					inputVelocity = -1;
+					break;
+				case keyBindings.left:
+					inputRotation = -1;
+					break;
+				case keyBindings.right:
+					inputRotation = 1;
+					break;
+				case keyBindings.shoot:
+					shooting = true;
+					break;
+				case keyBindings.shootSecondary:
+					shootingSecondary = true;
+					break;
+				case keyBindings.switchControls:
+					if(shooting && !alternativeControls)  shooting = false;
+					alternativeControls = !alternativeControls;
+					break;
+				case keyBindings.intertialDampening:
+					inertialDampening = !inertialDampening;
+					break;
+				case keyBindings.switchShield:
+					shieldEnabled = !shieldEnabled;
+					localPlayer.shieldEnabled = shieldEnabled;
+					break;
+				case keyBindings.constantDeltaTime:
+					constantDeltaTime = !constantDeltaTime;
+					break;
+				case keyBindings.chat:
+					chatInput.focus();
+					break;
+				case keyBindings.leaderboard:
+					leaderboardOpen = !leaderboardOpen;
+					if(leaderboardOpen){
+						refreshLeaderboard();
+					}
+					else {
+						leaderboardElement.style.maxHeight="30px";
+						leaderboardElement.style.opacity=".2";
+					}
+					break;
+				case keyBindings.spawnEnemy:
+					maxEnemyCount++;
+					enemySpawnTimer = 5;
+					break;
 			}
-			else {
-				leaderboardElement.style.maxHeight="30px";
-				leaderboardElement.style.opacity=".2";
+		}
+		switch (key){
+				case "ESCAPE":
+					if(keyAssignVars.screenOpen) closeKeySettings();
+					else {
+						menuOpen = !menuOpen;
+						if(menuOpen){
+							menu.style.display="flex";
+							scoreDisplay.innerHTML = localPlayer.score;
+							costDisplay.innerHTML = upgradeCost;
+							if(localPlayer.shipID < playerImageCount){
+								shipNameDisplay.innerHTML = shipName[localPlayer.shipID];
+								if(localPlayer.shipID < playerImageCount-1){
+									nextShipNameDisplay.innerHTML = shipName[localPlayer.shipID+1];
+									document.getElementById("nextShipImage").src=playerImage[localPlayer.shipID+1].src;
+								}
+							}
+						}
+						else {
+							menu.style.display="none";
+						}
+					}
+					break;
 			}
+			
+		if (key == "ESCAPE") {
+			
 		}
-		else if (key=="P"){
-			maxEnemyCount++;
-		}
-	}
-	if (key == "ESCAPE") {
-		menuOpen = !menuOpen;
-		if(menuOpen){
-			menu.style.display="flex";
-			scoreDisplay.innerHTML = localPlayer.score;
-			costDisplay.innerHTML = upgradeCost;
-			if(localPlayer.shipID < playerImageCount){
-				shipNameDisplay.innerHTML = shipName[localPlayer.shipID];
-				if(localPlayer.shipID < playerImageCount-1){
-					nextShipNameDisplay.innerHTML = shipName[localPlayer.shipID+1];
-					document.getElementById("nextShipImage").src=playerImage[localPlayer.shipID+1].src;
-				}
-			}
-		}
-		else {
-			menu.style.display="none";
-		}
-	}
 }
+
 	/*else if (key == "F") {
 		slowMotion = !slowMotion;
 		if(slowMotion) timeMultiplier = 1/4;
@@ -487,26 +537,26 @@ function keyDown(event) {
 }
 function keyUp(event) {
 	var key = event.key.toUpperCase();
-	if (key == "W") {
+	if (key == keyBindings.forward) {
 		if(inputVelocity==1)
 		inputVelocity = 0;
 	}
-	else if (key == "D") {
+	else if (key == keyBindings.right) {
 		if(inputRotation==1)
 		inputRotation = 0;
 	}
-	else if (key == "S") {
+	else if (key == keyBindings.backward) {
 		if(inputVelocity==-1)
 		inputVelocity = 0;
 	}
-	else if (key == "A") {
+	else if (key == keyBindings.left) {
 		if(inputRotation==-1)
 		inputRotation = 0;
 	}
-	else if (key == " ") {
+	else if (key == keyBindings.shoot) {
 		shooting = false;
 	}
-	else if (key == "SHIFT") {
+	else if (key == keyBindings.shootSecondary) {
 		shootingSecondary = false;
 	}
 }
@@ -529,6 +579,11 @@ function mouseMove(event) {
 
 
 function mouseUp(event) {
+	if(keyAssignVars.waiting){
+		keyAssignVars.waiting = false;
+		keyAssignVars.button.innerHTML = keyBindings[keyAssignVars.key];
+		keyAssignVars.button.blur();
+	}
 	if(!menuOpen){
 		if(event.button == 0){
 			if(!alternativeControls) shooting = false;
@@ -541,12 +596,12 @@ function mouseUp(event) {
 
 function chatKeyDown(event) {
 	var key = event.key.toUpperCase();
-	if(key == "ENTER"){
+	if(key == keyBindings.chat){
         if(chatInput == document.activeElement){
             sendChat();
 		}
 	}
-	if (key == "ENTER") {
+	if (key == keyBindings.chat) {
 		/*var messages = document.getElementsByClassName('chatMessage');
 		for (var i = 0; i < messages.length; i++) {
 			messages[i].style.display = ""; 
@@ -637,10 +692,14 @@ function onConnectionMessage(messageRaw) {
 
 				document.documentElement.style.setProperty('--playerColor', CSScolor(localPlayer.color ));
 
-				if(colorLuminance(localPlayer.color) > 128)
+				if(colorLuminance(localPlayer.color) > 128){
 					document.documentElement.style.setProperty('--textColor',"black");
-				else
+					document.documentElement.style.setProperty('--invertedTextColor',"white");
+				}
+				else{
 					document.documentElement.style.setProperty('--textColor',"white");
+					document.documentElement.style.setProperty('--invertedTextColor',"black");
+				}
 				
 				console.log("Added Local Player with ID " + localPlayer.id);
 				/*sendPos();
@@ -1406,9 +1465,9 @@ function update(timestamp) {
 			ctx.fillStyle = CSScolor({r:80,g:80,b:80});
 				ctx.fillText("Kills: " + localPlayer.score, canvas.width/2, canvas.height - 60);
 
-				drawKeyPrompt(keyIDs.inertialDampening,150,450,inertialDampening);
-				drawKeyPrompt(keyIDs.alternativeControls,285,480,!alternativeControls);
-				drawKeyPrompt(keyIDs.shieldEnabled,420,450,shieldEnabled);
+				drawKeyPrompt(keyBindings.inertialDampening,keyIDs.inertialDampening,150,450,inertialDampening);
+				drawKeyPrompt(keyBindings.switchControls,keyIDs.alternativeControls,285,480,!alternativeControls);
+				drawKeyPrompt(keyBindings.switchShield,keyIDs.shieldEnabled,420,450,shieldEnabled);
 				
 				drawWarning("Losing Energy",80,230,(localPlayer.energyRecharge < localPlayer.shieldEnergyCost && shieldEnabled && localPlayer.shield < localPlayer.maxShield));
 				drawWarning("Low Energy",80,290,(localPlayer.energy < localPlayer.maxEnergy / 5));
@@ -2102,6 +2161,66 @@ function update(timestamp) {
 
 //#region GAME UTLITY FUNCTIONS
 
+function openKeySettings(){
+	keyAssignVars.screenOpen = true;
+	keySettingsHTML.style.display="flex";
+	var keySettingsList = document.getElementById("keySettingsList");
+	keySettingsList.innerHTML = "";
+	for (var key in keyBindings){
+		keySettingsList.appendChild(generateKeySettingsItem(key));
+	}
+}
+
+function closeKeySettings(){
+	keyAssignVars.screenOpen = false;
+	keySettingsHTML.style.display="none";
+}
+
+function generateKeySettingsItem(key){
+	var result = document.createElement("div");
+	result.classList.add("keySettingsItem");
+	var keyName = document.createElement("h1");
+	keyName.innerHTML = keyBindNames[key];
+	result.appendChild(keyName);
+	var buttonContainer = document.createElement("div");
+	buttonContainer.classList.add("keySettingsLine");
+	result.appendChild(buttonContainer);
+	var buttonContainer = document.createElement("div");
+	buttonContainer.classList.add("buttonContainer");
+	result.appendChild(buttonContainer);
+	var keyButton = document.createElement("button");
+	keyButton.onclick="keyAssign("+key+")";
+	keyButton.setAttribute("onclick", "keyAssign(this)");
+	keyButton.setAttribute("keyAssignID", key);
+	/*keyButton.onclick = function () {
+		keyAssign(key);
+	}*/
+	keyButton.classList.add("keyAssign");
+	keyButton.innerHTML = keyToDisplay(keyBindings[key]);
+	buttonContainer.appendChild(keyButton);
+	return result;
+}
+
+function keyAssign(button){
+	if(!keyAssignVars.waiting || button != keyAssignVars.button){
+		button.focus();
+		button.innerHTML = " "
+		keyAssignVars.waiting=true;
+		keyAssignVars.key=button.getAttribute("keyAssignID");
+		keyAssignVars.button = button;
+	}
+}
+function finishKeyAssign(){
+		keyAssignVars.waiting = false;
+		keyAssignVars.button.innerHTML = keyToDisplay(keyBindings[keyAssignVars.key]);
+		keyAssignVars.button.blur();
+	}
+function keyToDisplay(key){
+	var result = key;
+	if(key == " ") result = "SPACE";
+	return result;
+}
+
 function generateLeaderboard(){
 	var tempScores = new Array (10);
 	tempScores.fill(-1);
@@ -2265,7 +2384,7 @@ function gameStart() {
 	running = true;
 }
 
-function drawKeyPrompt(id,x,y,toggle){
+function drawKeyPrompt(keyCode,id,x,y,toggle){
 	var pos = {
 		x:canvas.width/2-pointerDistance+x,
 		y:canvas.height/2-pointerDistance+y
@@ -2286,7 +2405,7 @@ function drawKeyPrompt(id,x,y,toggle){
 	else{
 		ctx.strokeRect(pos.x,pos.y+50,30,30);
 	}
-	ctx.fillText(keys[id],pos.x+15,pos.y+71);
+	ctx.fillText(keyCode,pos.x+15,pos.y+71);
 	ctx.globalAlpha = 1;
 	ctx.font = "20px Century Gothic";
 }
