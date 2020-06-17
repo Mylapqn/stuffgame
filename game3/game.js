@@ -471,7 +471,8 @@ function keyDown(event) {
 					if(shooting && !alternativeControls)  shooting = false;
 					alternativeControls = !alternativeControls;
 					break;
-				case keyBindings.intertialDampening:
+				case keyBindings.inertialDampening:
+					console.log("wetwetwertwet");
 					inertialDampening = !inertialDampening;
 					break;
 				case keyBindings.switchShield:
@@ -1297,7 +1298,8 @@ function update(timestamp) {
 				localPlayer.velocity.x += Math.cos(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
 				localPlayer.velocity.y += Math.sin(localPlayer.rot) * inputVelocity * localPlayer.thrust * deltaTime;
 			}
-			else if (inertialDampening) {
+			if (inputVelocity == 0 && inertialDampening) {
+				
 				localPlayer.velocity.x *= 1 - .3 * deltaTime;
 				localPlayer.velocity.y *= 1 - .3 * deltaTime;
 			}
@@ -1373,9 +1375,9 @@ function update(timestamp) {
 			
 		}
 
-		if (inputVelocity == 0 && Math.abs(velocityMagnitude) < 200) {
-			localPlayer.velocity.x -= 200 * deltaTime * Math.sign(localPlayer.velocity.x);
-			localPlayer.velocity.y -= 200 * deltaTime * Math.sign(localPlayer.velocity.y);
+		if (inputVelocity == 0 && inputRotation == 0 && Math.abs(velocityMagnitude) < 150) {
+			localPlayer.velocity.x *= 1- 2.2 * deltaTime;
+			localPlayer.velocity.y *= 1- 2.2 * deltaTime;
 			if(Math.abs(localPlayer.velocity.x) < 10 && Math.abs(localPlayer.velocity.y) < 10){
 				localPlayer.velocity.x = 0;
 				localPlayer.velocity.y = 0;
