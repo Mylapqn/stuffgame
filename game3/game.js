@@ -255,7 +255,7 @@ console.log(playerImage);
 
 var gameArea = document.getElementById("gameArea");
 var canvas = document.getElementById("gameCanvas");
-var ctx = canvas.getContext("2d");
+var ctx = canvas.getContext("2d", {alpha:false});
 
 var menu = document.getElementById("menu");
 var scoreDisplay = document.getElementById("scoreDisplay");
