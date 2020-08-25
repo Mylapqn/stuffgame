@@ -30,6 +30,7 @@ function Player(id) {
 	this.engineEnergyCost = 5;
 	this.shipID = 0;
 	this.score = 0;
+	this.initialised = false;
 	//this.ship = ships[0];
 };
 
@@ -255,7 +256,7 @@ console.log(playerImage);
 
 var gameArea = document.getElementById("gameArea");
 var canvas = document.getElementById("gameCanvas");
-var ctx = canvas.getContext("2d", {alpha:false});
+var ctx = canvas.getContext("2d", { alpha: false });
 
 var menu = document.getElementById("menu");
 var scoreDisplay = document.getElementById("scoreDisplay");
@@ -339,20 +340,20 @@ var pointerDistance = 300;
 var zoom = 1;
 
 var screenWorldspace = {
-	width:0,
+	width: 0,
 	height: 0
 }
 
 var screenEdges = {
-	xmin:0,
-	xmax:0,
-	ymin:0,
-	ymax:0
+	xmin: 0,
+	xmax: 0,
+	ymin: 0,
+	ymax: 0
 }
 
 var hitboxSize = .7;
 
-var colors ={
+var colors = {
 	white: {
 		r: 255,
 		g: 255,
@@ -381,7 +382,7 @@ for (var i = 0; i < stars.length; i++) {
 		x: randomInt(0, screen.width),
 		y: randomInt(0, screen.height),
 		z: randomFloat(0.25, 6),
-		alpha: randomFloat(0.2,0.8)
+		alpha: randomFloat(0.2, 0.8)
 	};
 
 }
@@ -546,6 +547,11 @@ function keyDown(event) {
 					break;
 				case keyBindings.chat:
 					chatInput.focus();
+					var chatMessageList = chatMessageArea.children;
+					for (var i = 0; i < chatMessageList.length; i++) {
+						chatMessageList[i].style.display = "block";
+						chatMessageList[i].style.animation = "none";
+					}
 					break;
 				case keyBindings.leaderboard:
 					leaderboardOpen = !leaderboardOpen;
@@ -672,8 +678,19 @@ function chatKeyDown(event) {
 		event.stopPropagation();
 		chatInput.blur();
 		gameArea.focus();
+
+
 	}
 }
+
+chatInput.addEventListener("blur", function (e) {
+	var chatMessageList = chatMessageArea.children;
+	for (var i = 0; i < chatMessageList.length; i++) {
+		chatMessageList[i].style.display = "";
+		chatMessageList[i].style.animation = "";
+		chatMessageList[i].style.animationDuration = "1s";
+	}
+});
 
 //#endregion
 
@@ -713,6 +730,7 @@ function onConnectionMessage(messageRaw) {
 				console.log("Init message received");
 				//addPlayer(message.data);
 				localPlayer = addPlayer(false);
+				localPlayer.initialised = true;
 				console.log(localPlayer.color);
 
 				var cookie = document.cookie;
@@ -857,6 +875,8 @@ function onConnectionMessage(messageRaw) {
 					player.velocity = { x: player.pos.x - oldPos.x, y: player.pos.y - oldPos.y };
 					player.velocity.x *= 60;
 					player.velocity.y *= 60;
+					player.initialised = true;
+
 					/*if (!players[playerIndex].initialised) {
 						players[playerIndex].oldPos.x = players[playerIndex].pos.x;
 						players[playerIndex].oldPos.y = players[playerIndex].pos.y;
@@ -1084,7 +1104,7 @@ function createExplosion(x, y, size) {
 		soundExplosion.play(1);
 		//shakeScreen(10, 2);
 	}
-		
+
 	while (size > 2) {
 		createExplosion(x + randomInt(-100, 100), y + randomInt(-100, 100), randomFloat(0.5, 2.5));
 		//setTimeout(function(){createExplosion(x + randomInt(-100,100),y + randomInt(-100,100),randomFloat(0.5,2.5));},randomInt(0,100));
@@ -1230,11 +1250,12 @@ function addChatMessage(text, player, color) {
 	}
 	newMsg.appendChild(document.createTextNode(text));
 	chatMessageArea.appendChild(newMsg);
+	newMsg.setAttribute("animation-finished", "0");
 	newMsg.addEventListener('animationend', function (e) {
 		newMsg.style.display = "none";
 	}, {
 		capture: false,
-		once: true,
+		once: false,
 		passive: false
 	});
 }
@@ -1321,7 +1342,7 @@ function shakeScreen(strength, duration) {
 function update(timestamp) {
 	//console.log("frame");
 	if (running) {
-		
+
 
 		//#region INIT
 
@@ -1481,9 +1502,9 @@ function update(timestamp) {
 			var p = players[i];
 
 
-				
 
-			
+
+
 
 			p.hitbox = [{ x: p.pos.x - hitboxSize * p.size / 2, y: p.pos.y - hitboxSize * p.size / 2 }, { x: p.pos.x + hitboxSize * p.size / 2, y: p.pos.y - hitboxSize * p.size / 2 }, { x: p.pos.x + hitboxSize * p.size / 2, y: p.pos.y + hitboxSize * p.size / 2 }, { x: p.pos.x - hitboxSize * p.size / 2, y: p.pos.y + hitboxSize * p.size / 2 }]
 		}
@@ -1672,9 +1693,9 @@ function update(timestamp) {
 		screenEdges.xmax = cameraPos.x + screenWorldspace.width / 2;
 		screenEdges.ymin = cameraPos.y - screenWorldspace.height / 2;
 		screenEdges.ymax = cameraPos.y + screenWorldspace.height / 2;
-		
 
-			
+
+
 		var cameraMoved = false;
 		if (cameraDelta.x != 0 || cameraDelta.y != 0) {
 			cameraMoved = true;
@@ -1687,10 +1708,10 @@ function update(timestamp) {
 		tempStarsAmount.innerHTML = stars.length * sliderStars.value;
 		for (var i = 0; i < stars.length * sliderStars.value; i++) {
 			var star = stars[i];
-			var oldStar = { x: star.x+cameraDelta.x, y: star.y+cameraDelta.y};
-			ctx.fillStyle = CSScolorAlpha(colors.white,star.alpha);
+			var oldStar = { x: star.x + cameraDelta.x, y: star.y + cameraDelta.y };
+			ctx.fillStyle = CSScolorAlpha(colors.white, star.alpha);
 			ctx.strokeStyle = ctx.fillStyle;
-			
+
 			if (cameraMoved) {
 				star.x -= cameraDelta.x * (star.z - 1) * starSpeed;
 				star.y -= cameraDelta.y * (star.z - 1) * starSpeed;
@@ -1698,29 +1719,29 @@ function update(timestamp) {
 				ctx.beginPath();
 				ctx.moveTo(oldStar.x, oldStar.y);
 				ctx.lineTo(star.x, star.y);
-				
-				ctx.lineWidth = star.z*starSize+minStarSize;
+
+				ctx.lineWidth = star.z * starSize + minStarSize;
 				ctx.stroke();
-				
+
 
 				if (star.x < screenEdges.xmin) star.x += screenWorldspace.width;
 				if (star.x > screenEdges.xmax) star.x -= screenWorldspace.width;
 				if (star.y < screenEdges.ymin) star.y += screenWorldspace.height;
 				if (star.y > screenEdges.ymax) star.y -= screenWorldspace.height;
 
-				
-				
-				
+
+
+
 			} else {
 				ctx.beginPath();
-				ctx.arc(star.x, star.y, 0.5*(star.z*starSize+minStarSize), 0, 2 * Math.PI);
+				ctx.arc(star.x, star.y, 0.5 * (star.z * starSize + minStarSize), 0, 2 * Math.PI);
 				ctx.fill();
 			}
-		
+
 		}
 		ctx.lineCap = "butt";
 
-		
+
 
 		ctx.lineWidth = 3;
 		ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .1);
@@ -1731,7 +1752,7 @@ function update(timestamp) {
 		ctx.stroke();
 		ctx.fillText("SPAWN", 200, 210);
 
-		
+
 
 		/*
 		var bgPos = [];
@@ -1916,109 +1937,113 @@ function update(timestamp) {
 			if (p.hp > 0) {
 
 				//TEST IF ON SCREEN
-				if (p.pos.x - localPlayer.pos.x < canvas.width / 2 / zoom && p.pos.x - localPlayer.pos.x > -canvas.width / 2 / zoom && p.pos.y - localPlayer.pos.y < canvas.height / 2 / zoom && p.pos.y - localPlayer.pos.y > -canvas.height / 2 / zoom) {
+				if (testIfOnScreen(p.pos, 5000)) {
 					//DRAW TRAIL
-					p.trails.forEach(trail => {
-						trail.update();
-						renderTrail(trail);
+					if (p.initialised) {
+						p.trails.forEach(trail => {
+							trail.update();
+							renderTrail(trail);
 
-					});
-
-
-					//DRAW PLAYER
-
-					ctx.lineWidth = 3;
-					ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .1);
-					ctx.beginPath();
-					ctx.arc(p.pos.x, p.pos.y, p.size / 2, 0, Math.PI * 2);
-					ctx.stroke();
-					ctx.strokeStyle = CSScolorAlpha(p.color, .5);
-					ctx.beginPath();
-					ctx.arc(p.pos.x, p.pos.y, p.size / 2, 0, Math.PI * 2 * (p.hp / p.maxHp));
-					ctx.stroke();
-
-
-					//PREDICT POS
-					if (p.id != localPlayer.id) {
-						var predictedPos = predictTargetPos(localPlayer, p, 1500);
-						ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .2);
-						ctx.beginPath();
-						ctx.arc(predictedPos.x, predictedPos.y, 10, 0, Math.PI * 2);
-						ctx.stroke();
-						ctx.setLineDash([10, 15]);
-						ctx.beginPath();
-						ctx.moveTo(p.pos.x, p.pos.y);
-						ctx.lineTo(predictedPos.x, predictedPos.y);
-						ctx.stroke();
-						ctx.setLineDash([]);
+						});
 					}
 
 
+					if (testIfOnScreen(p.pos, 50)) {
+						//DRAW PLAYER
 
-					ctx.fillStyle = CSScolorAlpha(p.color, .5);
-					ctx.fillText(p.name, p.pos.x, p.pos.y + (p.size * .5) + 30);
-
-					ctx.save();
-					ctx.translate(p.pos.x, p.pos.y);
-					ctx.rotate(p.rot);
-					ctx.translate(-p.pos.x, -p.pos.y);
-					ctx.fillStyle = CSScolor(p.color);
-					//ctx.fillRect(0, 0, canvas.width, canvas.height);
-					//ctx.globalCompositeOperation="destination-in";
-					var pImg = playerImage[p.shipID];
-					if (p.shipID >= playerImageCount)
-						var pImg = playerImage[playerImageCount - 1];
-					ctx.drawImage(pImg, p.pos.x - p.size / 2, p.pos.y - p.size / 2, p.size, p.size);
-					ctx.restore();
-
-					if (p.shieldEnabled) {
-
-						var shieldRatio = p.shield / p.maxShield;
-						ctx.lineWidth = 3 * (shieldRatio);
-						ctx.strokeStyle = CSScolorAlpha(shieldColor, .8 * (shieldRatio));
-						ctx.fillStyle = CSScolorAlpha(shieldColor, .2 * (shieldRatio));
+						ctx.lineWidth = 3;
+						ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .1);
 						ctx.beginPath();
-						ctx.arc(p.pos.x, p.pos.y, p.size / 2 + 10, 0, Math.PI * 2);
+						ctx.arc(p.pos.x, p.pos.y, p.size / 2, 0, Math.PI * 2);
 						ctx.stroke();
+						ctx.strokeStyle = CSScolorAlpha(p.color, .5);
+						ctx.beginPath();
+						ctx.arc(p.pos.x, p.pos.y, p.size / 2, 0, Math.PI * 2 * (p.hp / p.maxHp));
+						ctx.stroke();
+
+
+						//PREDICT POS
+						if (p.id != localPlayer.id) {
+							var predictedPos = predictTargetPos(localPlayer, p, 1500);
+							ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .2);
+							ctx.beginPath();
+							ctx.arc(predictedPos.x, predictedPos.y, 10, 0, Math.PI * 2);
+							ctx.stroke();
+							ctx.setLineDash([10, 15]);
+							ctx.beginPath();
+							ctx.moveTo(p.pos.x, p.pos.y);
+							ctx.lineTo(predictedPos.x, predictedPos.y);
+							ctx.stroke();
+							ctx.setLineDash([]);
+						}
+
+
+
+						ctx.fillStyle = CSScolorAlpha(p.color, .5);
+						ctx.fillText(p.name, p.pos.x, p.pos.y + (p.size * .5) + 30);
+
+						ctx.save();
+						ctx.translate(p.pos.x, p.pos.y);
+						ctx.rotate(p.rot);
+						ctx.translate(-p.pos.x, -p.pos.y);
+						ctx.fillStyle = CSScolor(p.color);
+						//ctx.fillRect(0, 0, canvas.width, canvas.height);
+						//ctx.globalCompositeOperation="destination-in";
+						var pImg = playerImage[p.shipID];
+						if (p.shipID >= playerImageCount)
+							var pImg = playerImage[playerImageCount - 1];
+						ctx.drawImage(pImg, p.pos.x - p.size / 2, p.pos.y - p.size / 2, p.size, p.size);
+						ctx.restore();
+
+						if (p.shieldEnabled) {
+
+							var shieldRatio = p.shield / p.maxShield;
+							ctx.lineWidth = 3 * (shieldRatio);
+							ctx.strokeStyle = CSScolorAlpha(shieldColor, .8 * (shieldRatio));
+							ctx.fillStyle = CSScolorAlpha(shieldColor, .2 * (shieldRatio));
+							ctx.beginPath();
+							ctx.arc(p.pos.x, p.pos.y, p.size / 2 + 10, 0, Math.PI * 2);
+							ctx.stroke();
+							ctx.fill();
+						}
+
+						/*ctx.fillStyle = CSScolor(p.color);
+						ctx.fillText(p.rot,p.pos.x,p.pos.y+30);*/
+						//DRAW SMOKE
+						if (p.hp <= p.maxHp / 2) {
+							if (p.hp <= p.maxHp / 3 && p.hp >= p.maxHp / 5 && frameIndex % 4 == 0) {
+								particles.push(new Particle(p.pos.x + randomFloat(-15, 15), p.pos.y + randomFloat(-15, 15), true, true, -1, 1, 40, { r: 0, g: 0, b: 0 }, .3));
+							}
+							if (p.hp <= p.maxHp / 5 && frameIndex % 3 == 0) {
+								particles.push(new Particle(p.pos.x + randomFloat(-15, 15), p.pos.y + randomFloat(-15, 15), true, true, -1, 1.5, 50, { r: 0, g: 0, b: 0 }, 1));
+							}
+							if (p.hp <= p.maxHp / 10 && frameIndex % 5 == 0) {
+								particles.push(new Particle(p.pos.x + randomFloat(-25, 25), p.pos.y + randomFloat(-25, 25), true, true, -1, 1.2, 10, { r: 200, g: 80, b: 0 }, 1));
+							}
+						}
+					}
+					else {
+						//DRAW POINTER
+
+						ctx.translate(lastPos.x, lastPos.y);
+						ctx.scale(1 / zoom, 1 / zoom);
+						ctx.fillStyle = CSScolor(p.color);
+						var rotToPlayer = objectRot(localPlayer, p);
+						ctx.save();
+						rotateCtx(canvas.width / 2, canvas.height / 2, rotToPlayer);
+						//ctx.fillRect(canvas.width/2 + pointerPos.x - 10,canvas.height/2 + pointerPos.y - 10,20,20);
+						//ctx.fillRect(canvas.width/2 + pointerDistance,canvas.height/2,20,2);
+
+						ctx.beginPath();
+						ctx.moveTo(canvas.width / 2 + pointerDistance + 12, canvas.height / 2);
+						ctx.lineTo(canvas.width / 2 + pointerDistance, canvas.height / 2 - 6);
+						ctx.lineTo(canvas.width / 2 + pointerDistance, canvas.height / 2 + 6);
 						ctx.fill();
+
+						ctx.restore();
+						ctx.scale(zoom, zoom);
+						ctx.translate(-lastPos.x, -lastPos.y);
 					}
-
-					/*ctx.fillStyle = CSScolor(p.color);
-					ctx.fillText(p.rot,p.pos.x,p.pos.y+30);*/
-					//DRAW SMOKE
-					if (p.hp <= p.maxHp / 2) {
-						if (p.hp <= p.maxHp / 3 && p.hp >= p.maxHp / 5 && frameIndex % 4 == 0) {
-							particles.push(new Particle(p.pos.x + randomFloat(-15, 15), p.pos.y + randomFloat(-15, 15), true, true, -1, 1, 40, { r: 0, g: 0, b: 0 }, .3));
-						}
-						if (p.hp <= p.maxHp / 5 && frameIndex % 3 == 0) {
-							particles.push(new Particle(p.pos.x + randomFloat(-15, 15), p.pos.y + randomFloat(-15, 15), true, true, -1, 1.5, 50, { r: 0, g: 0, b: 0 }, 1));
-						}
-						if (p.hp <= p.maxHp / 10 && frameIndex % 5 == 0) {
-							particles.push(new Particle(p.pos.x + randomFloat(-25, 25), p.pos.y + randomFloat(-25, 25), true, true, -1, 1.2, 10, { r: 200, g: 80, b: 0 }, 1));
-						}
-					}
-				}
-				else {
-					//DRAW POINTER
-
-					ctx.translate(lastPos.x, lastPos.y);
-					ctx.scale(1 / zoom, 1 / zoom);
-					ctx.fillStyle = CSScolor(p.color);
-					var rotToPlayer = objectRot(localPlayer, p);
-					ctx.save();
-					rotateCtx(canvas.width / 2, canvas.height / 2, rotToPlayer);
-					//ctx.fillRect(canvas.width/2 + pointerPos.x - 10,canvas.height/2 + pointerPos.y - 10,20,20);
-					//ctx.fillRect(canvas.width/2 + pointerDistance,canvas.height/2,20,2);
-
-					ctx.beginPath();
-					ctx.moveTo(canvas.width / 2 + pointerDistance + 12, canvas.height / 2);
-					ctx.lineTo(canvas.width / 2 + pointerDistance, canvas.height / 2 - 6);
-					ctx.lineTo(canvas.width / 2 + pointerDistance, canvas.height / 2 + 6);
-					ctx.fill();
-
-					ctx.restore();
-					ctx.scale(zoom, zoom);
-					ctx.translate(-lastPos.x, -lastPos.y);
 				}
 			}
 		}
@@ -2596,6 +2621,10 @@ function drawWarning(text, x, y, toggle) {
 	}
 	ctx.globalAlpha = 1;
 	ctx.font = "20px Century Gothic";
+}
+
+function testIfOnScreen(object, margin) {
+	return (object.x > screenEdges.xmin - margin && object.x < screenEdges.xmax + margin && object.y > screenEdges.ymin - margin && object.y < screenEdges.ymax + margin);
 }
 
 //#endregion
