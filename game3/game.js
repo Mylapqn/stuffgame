@@ -165,6 +165,10 @@ var sliderEngine = document.getElementById("sliderEngine");
 var sliderWeapons = document.getElementById("sliderWeapons");
 var sliderShields = document.getElementById("sliderShields");
 
+var sliderStars = document.getElementById("sliderStars");
+var tempStarsAmount = document.getElementById("tempStarsAmount");
+var tempFpsCounter = document.getElementById("tempFps");
+
 
 var shieldColor = { r: 30, g: 150, b: 200 };
 
@@ -365,7 +369,8 @@ var colors ={
 
 
 
-var starCount = 500;
+var starCount = 2000;
+var starsRatio = 0.5;
 var starSpeed = 1;
 var starSize = 1;
 var minStarSize = 0.5;
@@ -1496,6 +1501,10 @@ function update(timestamp) {
 
 		ctx.fillStyle = "white";
 		ctx.textAlign = "left";
+
+
+		/*REMOVE THIS*/tempFpsCounter.innerHTML = (fpsCounterFrames / currentFps).toFixed(0);
+
 		if (showFps) {
 			ctx.fillText("DeltaTime: " + trueDeltaTime.toFixed(3), 30, 30);
 			ctx.fillText("True FPS: " + (1 / trueDeltaTime).toFixed(0), 30, 60);
@@ -1675,7 +1684,8 @@ function update(timestamp) {
 		ctx.translate(-lastPos.x, -lastPos.y);
 
 		ctx.lineCap = "round";
-		for (var i = 0; i < stars.length; i++) {
+		tempStarsAmount.innerHTML = stars.length * sliderStars.value;
+		for (var i = 0; i < stars.length * sliderStars.value; i++) {
 			var star = stars[i];
 			var oldStar = { x: star.x+cameraDelta.x, y: star.y+cameraDelta.y};
 			ctx.fillStyle = CSScolorAlpha(colors.white,star.alpha);
