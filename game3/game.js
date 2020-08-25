@@ -1703,7 +1703,7 @@ function update(timestamp) {
 				
 			} else {
 				ctx.beginPath();
-				ctx.arc(star.x, star.y, 0.5*star.z*starSize+minStarSize, 0, 2 * Math.PI);
+				ctx.arc(star.x, star.y, 0.5*(star.z*starSize+minStarSize), 0, 2 * Math.PI);
 				ctx.fill();
 			}
 		
