@@ -153,24 +153,58 @@
             overflow:hidden;
         }
 
+        .energySliderContainer {
+            user-select:none;
+            position:absolute;
+            z-index:10;
+            bottom:50px;
+            right:50px;
+            /*background:rgba(105, 105, 105, 0.26);*/
+            background:rgb(19, 22, 25);
+            border: 3px solid rgb(48, 48, 48);
+            display:flex;
+            flex-direction:column;
+            padding:10px;
+            padding-top:20px;
+            color:gray;
+        }
+
+        .energySliderContainer::before{
+            content:"Energy Distribution";
+            position:absolute;
+            display:block;
+            top:-10px;
+            left:32px;
+            background:rgb(19, 22, 25);
+            height:20px;
+            padding-left:10px;
+            padding-right:10px;
+            margin:0;
+            width:fit-content;
+            text-align:center;
+        }
+
         .energySlider{
             appearance: none;
             -webkit-appearance: none;
-            height:10px;
-            margin-top:20px;
-            margin-bottom:20px;
+            height:3px;
+            margin-top:15px;
+            margin-bottom:15px;
             margin-right:5px;
             /*border:1px solid red;*/
             background:rgb(128, 128, 133);
-            border:5px solid rgb(100, 100, 104);
-            background:linear-gradient(90deg,gray,gray,rgb(219, 50, 50));
+            /*border:5px solid rgb(100, 100, 104);*/
+            background:linear-gradient(90deg,rgba(128, 128, 128, 0),rgba(128, 128, 128, 0.486),var(--playerColor));
+            /*background:linear-gradient(90deg,gray,gray,rgb(219, 50, 50));*/
         }
         .energySlider::-webkit-slider-thumb {
             appearance: none;
             -webkit-appearance: none;
-            height:20px;
-            width:10px;
-            background:white;
+            height:5px;
+            width:15px;
+            margin-top:13px;
+            margin-bottom:13px;
+            background:rgb(140, 140, 140);
         }
 
         #keySettings{
@@ -293,8 +327,7 @@
             </ol>
         </div>
 
-        <div style="position:absolute;z-index:10;top:100px;left:20px;background:rgba(105, 105, 105, 0.26); display:flex;flex-direction: column;padding:10px;color:white;">
-            Energy Distribution
+        <div class = energySliderContainer>
             <span style="display:flex; align-items: center;"><input type="range" id="sliderEngine" class="energySlider"  min="0" max="2" step="0.1"> Engine</span>
             <span style="display:flex; align-items: center;"><input type="range" id="sliderWeapons" class="energySlider" min="0" max="2" step="0.1"> Weapons</span>
             <span style="display:flex; align-items: center;"><input type="range" id="sliderShields" class="energySlider" min="0" max="2" step="0.1"> Shields</span>
