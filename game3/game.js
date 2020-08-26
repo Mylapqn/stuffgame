@@ -386,7 +386,7 @@ for (var i = 0; i < stars.length; i++) {
 		x: randomInt(-screen.width / 2 - starMargin.x, screen.width / 2 + starMargin.x),
 		y: randomInt(-screen.height / 2 - starMargin.y, screen.height / 2 + starMargin.y),
 		z: randomFloat(0.25, 6),
-		alpha: randomFloat(0.5, 0.9)
+		alpha: randomFloat(0.5, 0.9),
 	};
 	stars[i].xOffset = stars[i].x;
 	stars[i].yOffset = stars[i].y;
@@ -1740,20 +1740,23 @@ function update(timestamp) {
 			y: screen.height + 2 * starMargin.y
 		}
 
+		ctx.fillStyle = "white";
+		ctx.strokeStyle = "white";
+
 		var starsOnScreen = 0;
-		for (var i = 0; i < stars.length * min(zoom*3,sliderStars.value); i++) {
+		for (var i = 0; i < stars.length * min(zoom * 3, sliderStars.value); i++) {
 			var star = stars[i];
 
-			var oldStar = { x: star.x + cameraDelta.x, y: star.y + cameraDelta.y };
-
-			ctx.fillStyle = CSScolorAlpha(colors.white, star.alpha);
-			ctx.strokeStyle = ctx.fillStyle;
-
 			if (cameraMoved) {
+
+				var oldStar = { x: star.x + cameraDelta.x, y: star.y + cameraDelta.y };
+
 				star.x -= cameraDelta.x * (star.z * starSpeed - 1);
 				star.y -= cameraDelta.y * (star.z * starSpeed - 1);
 
+
 				if (testIfOnScreen({ x: star.x, y: star.y }, 0)) {
+					ctx.globalAlpha = star.alpha;
 					starsOnScreen++;
 
 
@@ -1770,21 +1773,19 @@ function update(timestamp) {
 				if (star.y < starEdges.ymin) star.y += starFieldSize.y;
 				if (star.y > starEdges.ymax) star.y -= starFieldSize.y;
 
-
-
-
-
 			}
 			else {
-				ctx.beginPath();
-				ctx.arc(star.x, star.y, 0.5 * (star.z * starSize + minStarSize) / zoom, 0, 2 * Math.PI);
-				ctx.fill();
+				if (testIfOnScreen({ x: star.x, y: star.y }, 0)) {
+					ctx.globalAlpha = star.alpha;
+					ctx.beginPath();
+					ctx.arc(star.x, star.y, 0.5 * (star.z * starSize + minStarSize) / zoom, 0, 2 * Math.PI);
+					ctx.fill();
+				}
 			}
-
 
 		}
 		//console.log(starsOnScreen);
-
+		ctx.globalAlpha = 1;
 		ctx.lineCap = "butt";
 
 		//#endregion
@@ -1995,107 +1996,108 @@ function update(timestamp) {
 
 						});
 					}
+				}
 
 
-					if (testIfOnScreen(p.pos, 50)) {
-						//DRAW PLAYER
+				if (testIfOnScreen(p.pos, 50)) {
+					//DRAW PLAYER
 
-						ctx.lineWidth = 3;
-						ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .1);
+					ctx.lineWidth = 3;
+					ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .1);
+					ctx.beginPath();
+					ctx.arc(p.pos.x, p.pos.y, p.size / 2, 0, Math.PI * 2);
+					ctx.stroke();
+					ctx.strokeStyle = CSScolorAlpha(p.color, .5);
+					ctx.beginPath();
+					ctx.arc(p.pos.x, p.pos.y, p.size / 2, 0, Math.PI * 2 * (p.hp / p.maxHp));
+					ctx.stroke();
+
+
+					//PREDICT POS
+					if (p.id != localPlayer.id) {
+						var predictedPos = predictTargetPos(localPlayer, p, 1500);
+						ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .2);
 						ctx.beginPath();
-						ctx.arc(p.pos.x, p.pos.y, p.size / 2, 0, Math.PI * 2);
+						ctx.arc(predictedPos.x, predictedPos.y, 10, 0, Math.PI * 2);
 						ctx.stroke();
-						ctx.strokeStyle = CSScolorAlpha(p.color, .5);
+						ctx.setLineDash([10, 15]);
 						ctx.beginPath();
-						ctx.arc(p.pos.x, p.pos.y, p.size / 2, 0, Math.PI * 2 * (p.hp / p.maxHp));
+						ctx.moveTo(p.pos.x, p.pos.y);
+						ctx.lineTo(predictedPos.x, predictedPos.y);
 						ctx.stroke();
-
-
-						//PREDICT POS
-						if (p.id != localPlayer.id) {
-							var predictedPos = predictTargetPos(localPlayer, p, 1500);
-							ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .2);
-							ctx.beginPath();
-							ctx.arc(predictedPos.x, predictedPos.y, 10, 0, Math.PI * 2);
-							ctx.stroke();
-							ctx.setLineDash([10, 15]);
-							ctx.beginPath();
-							ctx.moveTo(p.pos.x, p.pos.y);
-							ctx.lineTo(predictedPos.x, predictedPos.y);
-							ctx.stroke();
-							ctx.setLineDash([]);
-						}
-
-
-
-						ctx.fillStyle = CSScolorAlpha(p.color, .5);
-						ctx.fillText(p.name, p.pos.x, p.pos.y + (p.size * .5) + 30);
-
-						ctx.save();
-						ctx.translate(p.pos.x, p.pos.y);
-						ctx.rotate(p.rot);
-						ctx.translate(-p.pos.x, -p.pos.y);
-						ctx.fillStyle = CSScolor(p.color);
-						//ctx.fillRect(0, 0, canvas.width, canvas.height);
-						//ctx.globalCompositeOperation="destination-in";
-						var pImg = playerImage[p.shipID];
-						if (p.shipID >= playerImageCount)
-							var pImg = playerImage[playerImageCount - 1];
-						ctx.drawImage(pImg, p.pos.x - p.size / 2, p.pos.y - p.size / 2, p.size, p.size);
-						ctx.restore();
-
-						if (p.shieldEnabled) {
-
-							var shieldRatio = p.shield / p.maxShield;
-							ctx.lineWidth = 3 * (shieldRatio);
-							ctx.strokeStyle = CSScolorAlpha(shieldColor, .8 * (shieldRatio));
-							ctx.fillStyle = CSScolorAlpha(shieldColor, .2 * (shieldRatio));
-							ctx.beginPath();
-							ctx.arc(p.pos.x, p.pos.y, p.size / 2 + 10, 0, Math.PI * 2);
-							ctx.stroke();
-							ctx.fill();
-						}
-
-						/*ctx.fillStyle = CSScolor(p.color);
-						ctx.fillText(p.rot,p.pos.x,p.pos.y+30);*/
-						//DRAW SMOKE
-						if (p.hp <= p.maxHp / 2) {
-							if (p.hp <= p.maxHp / 3 && p.hp >= p.maxHp / 5 && frameIndex % 4 == 0) {
-								particles.push(new Particle(p.pos.x + randomFloat(-15, 15), p.pos.y + randomFloat(-15, 15), true, true, -1, 1, 40, { r: 0, g: 0, b: 0 }, .3));
-							}
-							if (p.hp <= p.maxHp / 5 && frameIndex % 3 == 0) {
-								particles.push(new Particle(p.pos.x + randomFloat(-15, 15), p.pos.y + randomFloat(-15, 15), true, true, -1, 1.5, 50, { r: 0, g: 0, b: 0 }, 1));
-							}
-							if (p.hp <= p.maxHp / 10 && frameIndex % 5 == 0) {
-								particles.push(new Particle(p.pos.x + randomFloat(-25, 25), p.pos.y + randomFloat(-25, 25), true, true, -1, 1.2, 10, { r: 200, g: 80, b: 0 }, 1));
-							}
-						}
+						ctx.setLineDash([]);
 					}
-					else {
-						//DRAW POINTER
 
-						ctx.translate(lastPos.x, lastPos.y);
-						ctx.scale(1 / zoom, 1 / zoom);
-						ctx.fillStyle = CSScolor(p.color);
-						var rotToPlayer = objectRot(localPlayer, p);
-						ctx.save();
-						rotateCtx(canvas.width / 2, canvas.height / 2, rotToPlayer);
-						//ctx.fillRect(canvas.width/2 + pointerPos.x - 10,canvas.height/2 + pointerPos.y - 10,20,20);
-						//ctx.fillRect(canvas.width/2 + pointerDistance,canvas.height/2,20,2);
 
+
+					ctx.fillStyle = CSScolorAlpha(p.color, .5);
+					ctx.fillText(p.name, p.pos.x, p.pos.y + (p.size * .5) + 30);
+
+					ctx.save();
+					ctx.translate(p.pos.x, p.pos.y);
+					ctx.rotate(p.rot);
+					ctx.translate(-p.pos.x, -p.pos.y);
+					ctx.fillStyle = CSScolor(p.color);
+					//ctx.fillRect(0, 0, canvas.width, canvas.height);
+					//ctx.globalCompositeOperation="destination-in";
+					var pImg = playerImage[p.shipID];
+					if (p.shipID >= playerImageCount)
+						var pImg = playerImage[playerImageCount - 1];
+					ctx.drawImage(pImg, p.pos.x - p.size / 2, p.pos.y - p.size / 2, p.size, p.size);
+					ctx.restore();
+
+					if (p.shieldEnabled) {
+
+						var shieldRatio = p.shield / p.maxShield;
+						ctx.lineWidth = 3 * (shieldRatio);
+						ctx.strokeStyle = CSScolorAlpha(shieldColor, .8 * (shieldRatio));
+						ctx.fillStyle = CSScolorAlpha(shieldColor, .2 * (shieldRatio));
 						ctx.beginPath();
-						ctx.moveTo(canvas.width / 2 + pointerDistance + 12, canvas.height / 2);
-						ctx.lineTo(canvas.width / 2 + pointerDistance, canvas.height / 2 - 6);
-						ctx.lineTo(canvas.width / 2 + pointerDistance, canvas.height / 2 + 6);
+						ctx.arc(p.pos.x, p.pos.y, p.size / 2 + 10, 0, Math.PI * 2);
+						ctx.stroke();
 						ctx.fill();
-
-						ctx.restore();
-						ctx.scale(zoom, zoom);
-						ctx.translate(-lastPos.x, -lastPos.y);
 					}
+
+					/*ctx.fillStyle = CSScolor(p.color);
+					ctx.fillText(p.rot,p.pos.x,p.pos.y+30);*/
+					//DRAW SMOKE
+					if (p.hp <= p.maxHp / 2) {
+						if (p.hp <= p.maxHp / 3 && p.hp >= p.maxHp / 5 && frameIndex % 4 == 0) {
+							particles.push(new Particle(p.pos.x + randomFloat(-15, 15), p.pos.y + randomFloat(-15, 15), true, true, -1, 1, 40, { r: 0, g: 0, b: 0 }, .3));
+						}
+						if (p.hp <= p.maxHp / 5 && frameIndex % 3 == 0) {
+							particles.push(new Particle(p.pos.x + randomFloat(-15, 15), p.pos.y + randomFloat(-15, 15), true, true, -1, 1.5, 50, { r: 0, g: 0, b: 0 }, 1));
+						}
+						if (p.hp <= p.maxHp / 10 && frameIndex % 5 == 0) {
+							particles.push(new Particle(p.pos.x + randomFloat(-25, 25), p.pos.y + randomFloat(-25, 25), true, true, -1, 1.2, 10, { r: 200, g: 80, b: 0 }, 1));
+						}
+					}
+				}
+				else {
+					//DRAW POINTER
+
+					ctx.translate(lastPos.x, lastPos.y);
+					ctx.scale(1 / zoom, 1 / zoom);
+					ctx.fillStyle = CSScolor(p.color);
+					var rotToPlayer = objectRot(localPlayer, p);
+					ctx.save();
+					rotateCtx(canvas.width / 2, canvas.height / 2, rotToPlayer);
+					//ctx.fillRect(canvas.width/2 + pointerPos.x - 10,canvas.height/2 + pointerPos.y - 10,20,20);
+					//ctx.fillRect(canvas.width/2 + pointerDistance,canvas.height/2,20,2);
+
+					ctx.beginPath();
+					ctx.moveTo(canvas.width / 2 + pointerDistance + 12, canvas.height / 2);
+					ctx.lineTo(canvas.width / 2 + pointerDistance, canvas.height / 2 - 6);
+					ctx.lineTo(canvas.width / 2 + pointerDistance, canvas.height / 2 + 6);
+					ctx.fill();
+
+					ctx.restore();
+					ctx.scale(zoom, zoom);
+					ctx.translate(-lastPos.x, -lastPos.y);
 				}
 			}
 		}
+
 		//#endregion
 
 		//#region DRAW HITBOXES
