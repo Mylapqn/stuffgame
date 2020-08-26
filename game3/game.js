@@ -338,6 +338,13 @@ var gameOverScreenTimeout = 2;
 var pointerDistance = 300;
 
 var zoom = 1;
+var maxZoom = 3;
+var minZoom = 0.2;
+var startZoom = 1;
+var targetZoom = 1;
+var zoomDuration = 0;
+var zoomMaxDuration = .1;
+var zoomStep = 1.2;
 
 var screenWorldspace = {
 	width: 0,
@@ -370,8 +377,8 @@ var colors = {
 
 
 
-var starCount = 4000;
-var starsRatio = 0.5;
+var starCount = 20000;
+var starsRatio = 2000/starCount;
 var starSpeed = 1;
 var starSize = 1;
 var minStarSize = 1;
@@ -388,8 +395,8 @@ for (var i = 0; i < stars.length; i++) {
 		z: randomFloat(0.25, 6),
 		alpha: randomFloat(0.5, 0.9),
 	};
-	stars[i].xOffset = stars[i].x;
-	stars[i].yOffset = stars[i].y;
+	stars[i].oldX = stars[i].x;
+	stars[i].oldX = stars[i].y;
 
 
 }
@@ -406,6 +413,8 @@ var cameraMoved = false;
 
 var screenShake = 0;
 var screenShakeDecay = 0;
+
+
 
 /*var pingSendInterval = 1;
 var lastPingSent = 0;
@@ -489,13 +498,18 @@ gameArea.addEventListener('contextmenu', function (evt) {
 
 
 function wheel(event) {
-	console.log(zoom);
+	var oldTargetZoom = targetZoom;
 	if (event.deltaY < 0) {
-		if (zoom < 5) zoom += 0.1;
+		if (targetZoom <= maxZoom) targetZoom *= zoomStep;
 	}
 	if (event.deltaY > 0) {
-		if (zoom > 0.2) zoom -= 0.1;
+		if (targetZoom >= minZoom) targetZoom /= zoomStep;
 	}
+	if (targetZoom != oldTargetZoom) {
+		zoomDuration = 0;
+		startZoom = zoom;
+	}
+	//console.log("targetZoom:"+targetZoom);
 }
 
 
@@ -1398,6 +1412,13 @@ function update(timestamp) {
 		//#endregion
 
 		//#region CAMERA MOVEMENT
+		if (zoom != targetZoom && zoomDuration < zoomMaxDuration) {
+			zoomDuration += deltaTime;
+			if (zoomDuration > zoomMaxDuration) zoomDuration = zoomMaxDuration;
+			zoom = startZoom + (targetZoom - startZoom) * zoomDuration / zoomMaxDuration;
+			//console.log(zoomDuration / zoomMaxDuration);
+		}
+
 		oldCameraPos.x = cameraPos.x;
 		oldCameraPos.y = cameraPos.y;
 		cameraPos.x = localPlayer.pos.x;
@@ -1442,7 +1463,6 @@ function update(timestamp) {
 
 
 		//#endregion
-
 
 
 		//#region LOCAL SHOOTING
@@ -1567,7 +1587,7 @@ function updateStars() {
 	ctx.translate(-lastPos.x, -lastPos.y);
 
 	ctx.lineCap = "round";
-	tempStarsAmount.innerHTML = stars.length * sliderStars.value;
+	tempStarsAmount.innerHTML = stars.length * sliderStars.value * starsRatio;
 
 	var starMarginWorldspace = {
 		x: starMargin.x / zoom,
@@ -1590,16 +1610,17 @@ function updateStars() {
 	ctx.strokeStyle = "white";
 
 	var starsOnScreen = 0;
-	for (var i = 0; i < stars.length * min(zoom * 3, sliderStars.value); i++) {
+	//for (var i = 0; i < stars.length * min(zoom * zoom * 10, sliderStars.value); i++) {
+	for (var i = 0; i < stars.length && starsOnScreen < stars.length*sliderStars.value*starsRatio; i++) {
 		var star = stars[i];
 
 		if (cameraMoved) {
-
-			var oldStar = { x: star.x + cameraDelta.x, y: star.y + cameraDelta.y };
-
+			star.oldX = star.x + cameraDelta.x;
+			star.oldY = star.y + cameraDelta.y;
+			
 			star.x -= cameraDelta.x * (star.z * starSpeed - 1);
 			star.y -= cameraDelta.y * (star.z * starSpeed - 1);
-
+			
 
 			if (testIfOnScreen({ x: star.x, y: star.y }, 0)) {
 				ctx.globalAlpha = star.alpha;
@@ -1607,7 +1628,7 @@ function updateStars() {
 
 
 				ctx.beginPath();
-				ctx.moveTo(oldStar.x, oldStar.y);
+				ctx.moveTo(star.oldX, star.oldY);
 				ctx.lineTo(star.x, star.y);
 
 				ctx.lineWidth = (star.z * starSize + minStarSize) / zoom;
@@ -1622,6 +1643,7 @@ function updateStars() {
 		}
 		else {
 			if (testIfOnScreen({ x: star.x, y: star.y }, 0)) {
+				starsOnScreen++;
 				ctx.globalAlpha = star.alpha;
 				ctx.beginPath();
 				ctx.arc(star.x, star.y, 0.5 * (star.z * starSize + minStarSize) / zoom, 0, 2 * Math.PI);
