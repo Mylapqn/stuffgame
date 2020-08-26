@@ -370,25 +370,33 @@ var colors = {
 
 
 
-var starCount = 2000;
+var starCount = 4000;
 var starsRatio = 0.5;
 var starSpeed = 1;
 var starSize = 1;
-var minStarSize = 0.5;
+var minStarSize = 1;
+var starMargin = {
+	x: 4 * screen.width,
+	y: 4 * screen.height
+};
 var stars = new Array(starCount);
 
 for (var i = 0; i < stars.length; i++) {
 	stars[i] = {
-		x: randomInt(0, screen.width),
-		y: randomInt(0, screen.height),
+		x: randomInt(-screen.width / 2 - starMargin.x, screen.width / 2 + starMargin.x),
+		y: randomInt(-screen.height / 2 - starMargin.y, screen.height / 2 + starMargin.y),
 		z: randomFloat(0.25, 6),
-		alpha: randomFloat(0.2, 0.8)
+		alpha: randomFloat(0.5, 0.9)
 	};
+	stars[i].xOffset = stars[i].x;
+	stars[i].yOffset = stars[i].y;
+
 
 }
 for (var i = 0; i < stars.length; i++) {
 	if (stars[i].z < 1) stars[i].alpha *= 0.3;
 	stars[i].z = 1 / stars[i].z;
+	if (stars[i].z < 0.8) stars[i].alpha *= 0.3 + 0.3 * stars[i].z;
 }
 
 var cameraPos = { x: 0, y: 0 };
@@ -480,6 +488,7 @@ gameArea.addEventListener('contextmenu', function (evt) {
 
 
 function wheel(event) {
+	console.log(zoom);
 	if (event.deltaY < 0) {
 		if (zoom < 5) zoom += 0.1;
 	}
@@ -1510,10 +1519,11 @@ function update(timestamp) {
 		}
 		//#endregion
 
-		lastPos.x = cameraPos.x - canvas.width / 2 / zoom;
-		lastPos.y = cameraPos.y - canvas.height / 2 / zoom;
 
 		//#region SCREEN SPACE BG FX
+
+		lastPos.x = cameraPos.x - canvas.width / 2 / zoom;
+		lastPos.y = cameraPos.y - canvas.height / 2 / zoom;
 
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -1686,6 +1696,10 @@ function update(timestamp) {
 
 		//#endregion
 
+		//#endregion
+
+		//#region WORLD SPACE BG FX
+
 		screenWorldspace.width = screen.width / zoom;
 		screenWorldspace.height = screen.height / zoom;
 
@@ -1701,48 +1715,81 @@ function update(timestamp) {
 			cameraMoved = true;
 		}
 
+		//#region STARS
+
 		ctx.scale(zoom, zoom);
 		ctx.translate(-lastPos.x, -lastPos.y);
 
 		ctx.lineCap = "round";
 		tempStarsAmount.innerHTML = stars.length * sliderStars.value;
-		for (var i = 0; i < stars.length * sliderStars.value; i++) {
+
+		var starMarginWorldspace = {
+			x: starMargin.x / zoom,
+			y: starMargin.y / zoom
+		};
+
+		var starEdges = {
+			xmin: -screen.width / 2 - starMargin.x + cameraPos.x,
+			xmax: screen.width / 2 + starMargin.x + cameraPos.x,
+			ymin: -screen.height / 2 - starMargin.y + cameraPos.y,
+			ymax: screen.height / 2 + starMargin.y + cameraPos.y
+		}
+
+		var starFieldSize = {
+			x: screen.width + 2 * starMargin.x,
+			y: screen.height + 2 * starMargin.y
+		}
+
+		var starsOnScreen = 0;
+		for (var i = 0; i < stars.length * min(zoom*3,sliderStars.value); i++) {
 			var star = stars[i];
+
 			var oldStar = { x: star.x + cameraDelta.x, y: star.y + cameraDelta.y };
+
 			ctx.fillStyle = CSScolorAlpha(colors.white, star.alpha);
 			ctx.strokeStyle = ctx.fillStyle;
 
 			if (cameraMoved) {
-				star.x -= cameraDelta.x * (star.z - 1) * starSpeed;
-				star.y -= cameraDelta.y * (star.z - 1) * starSpeed;
+				star.x -= cameraDelta.x * (star.z * starSpeed - 1);
+				star.y -= cameraDelta.y * (star.z * starSpeed - 1);
 
+				if (testIfOnScreen({ x: star.x, y: star.y }, 0)) {
+					starsOnScreen++;
+
+
+					ctx.beginPath();
+					ctx.moveTo(oldStar.x, oldStar.y);
+					ctx.lineTo(star.x, star.y);
+
+					ctx.lineWidth = (star.z * starSize + minStarSize) / zoom;
+					ctx.stroke();
+				}
+
+				if (star.x < starEdges.xmin) star.x += starFieldSize.x;
+				if (star.x > starEdges.xmax) star.x -= starFieldSize.x;
+				if (star.y < starEdges.ymin) star.y += starFieldSize.y;
+				if (star.y > starEdges.ymax) star.y -= starFieldSize.y;
+
+
+
+
+
+			}
+			else {
 				ctx.beginPath();
-				ctx.moveTo(oldStar.x, oldStar.y);
-				ctx.lineTo(star.x, star.y);
-
-				ctx.lineWidth = star.z * starSize + minStarSize;
-				ctx.stroke();
-
-
-				if (star.x < screenEdges.xmin) star.x += screenWorldspace.width;
-				if (star.x > screenEdges.xmax) star.x -= screenWorldspace.width;
-				if (star.y < screenEdges.ymin) star.y += screenWorldspace.height;
-				if (star.y > screenEdges.ymax) star.y -= screenWorldspace.height;
-
-
-
-
-			} else {
-				ctx.beginPath();
-				ctx.arc(star.x, star.y, 0.5 * (star.z * starSize + minStarSize), 0, 2 * Math.PI);
+				ctx.arc(star.x, star.y, 0.5 * (star.z * starSize + minStarSize) / zoom, 0, 2 * Math.PI);
 				ctx.fill();
 			}
 
+
 		}
+		//console.log(starsOnScreen);
+
 		ctx.lineCap = "butt";
 
+		//#endregion
 
-
+		//#region SPAWN
 		ctx.lineWidth = 3;
 		ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .1);
 		ctx.fillStyle = ctx.strokeStyle;
@@ -1751,9 +1798,9 @@ function update(timestamp) {
 		ctx.arc(200, 200, 110, 0, Math.PI * 2);
 		ctx.stroke();
 		ctx.fillText("SPAWN", 200, 210);
+		//#endregion
 
-
-
+		//#region BG IMG
 		/*
 		var bgPos = [];
 		bgPos[0] = screenToWorldCoords({ x: 0, y: 0 });
@@ -1791,8 +1838,10 @@ function update(timestamp) {
 		bgPos.y -= bgPos.y % backgroundImage.height;
 		bgPos.y -= backgroundImage.height;
 		ctx.drawImage(backgroundImage,bgPos.x,bgPos.y,backgroundImage.width*4,backgroundImage.height*4);*/
+		//#endregion
 
 		//#endregion
+
 
 		//#region ENEMY SPAWNING
 
@@ -1810,7 +1859,6 @@ function update(timestamp) {
 
 
 		//#endregion
-
 
 		//#region PLAYERS LOOP
 
@@ -1930,6 +1978,7 @@ function update(timestamp) {
 			enemyCooldown = .2;
 		}
 		//#endregion
+
 
 		//#region DRAW PLAYERS
 		for (var i = 0; i < players.length; i++) {
@@ -2294,6 +2343,7 @@ function update(timestamp) {
 		}
 		//#endregion
 
+
 		//#region DRAW HUD
 
 		ctx.translate(lastPos.x, lastPos.y);
@@ -2627,6 +2677,12 @@ function testIfOnScreen(object, margin) {
 	return (object.x > screenEdges.xmin - margin && object.x < screenEdges.xmax + margin && object.y > screenEdges.ymin - margin && object.y < screenEdges.ymax + margin);
 }
 
+function testIfOnScreenScreenspace(object, margin) {
+	object.x += cameraPos.x;
+	object.y += cameraPos.y;
+	return (object.x > screenEdges.xmin - margin && object.x < screenEdges.xmax + margin && object.y > screenEdges.ymin - margin && object.y < screenEdges.ymax + margin);
+}
+
 //#endregion
 
 //#region GENERAL UTILITY FUNCTIONS
@@ -2787,6 +2843,15 @@ function getCookie(name) {
 		}
 	}
 	return "";
+}
+
+function min(a, b) {
+	if (a > b) return b;
+	else return a;
+}
+function max(a, b) {
+	if (a > b) return a;
+	else return b;
 }
 
 //#endregion
