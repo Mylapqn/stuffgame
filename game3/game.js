@@ -402,6 +402,7 @@ for (var i = 0; i < stars.length; i++) {
 var cameraPos = { x: 0, y: 0 };
 var oldCameraPos = { x: 0, y: 0 };
 var cameraDelta = { x: 0, y: 0 };
+var cameraMoved = false;
 
 var screenShake = 0;
 var screenShakeDecay = 0;
@@ -1392,7 +1393,954 @@ function update(timestamp) {
 
 		//#region LOCAL PLAYER MOVEMENT
 
-		maxVelocityMagnitude = localPlayer.speed;
+		updateLocalMovement();
+
+		//#endregion
+
+		//#region CAMERA MOVEMENT
+		oldCameraPos.x = cameraPos.x;
+		oldCameraPos.y = cameraPos.y;
+		cameraPos.x = localPlayer.pos.x;
+		cameraPos.y = localPlayer.pos.y;
+		if (screenShake > 0) {
+			cameraPos.x += randomFloat(-screenShake, screenShake);
+			cameraPos.y += randomFloat(-screenShake, screenShake);
+			screenShake -= screenShakeDecay * deltaTime;
+			if (screenShake < 0) screenShake = 0;
+		}
+		cameraDelta.x = cameraPos.x - oldCameraPos.x;
+		cameraDelta.y = cameraPos.y - oldCameraPos.y;
+		//#endregion
+
+		//#region HITBOX CALCULATION
+		updateCalcHitboxes();
+		//#endregion
+
+
+		//#region SCREEN SPACE BG FX
+		updateScreenspaceBg();
+		//#endregion
+
+		//#region WORLD SPACE BG FX
+		updateWorldspaceBg();
+		//#endregion
+
+
+		//#region ENEMY SPAWNING
+
+		if (enemyCount < maxEnemyCount) {
+			enemySpawnTimer += deltaTime;
+			if (enemySpawnTimer > 5) {
+				var aip = addPlayer(true);
+				aip.team = 2;
+				enemyCount++;
+				enemySpawnTimer = 0;
+			}
+		}
+
+		enemyCooldown -= deltaTime;
+
+
+		//#endregion
+
+
+
+		//#region LOCAL SHOOTING
+		updateShooting();
+		//#endregion
+
+		//#region PLAYERS AI
+		for (var i = 0; i < players.length; i++) {
+			var p = players[i];
+			if (p.ai && p.hp > 0) {
+				rotateToTarget(p, { pos: predictTargetPos(p, localPlayer, 1000) });
+
+				var distance = distancePos(localPlayer, p);
+
+				var slowingDistance = 700;
+				var stoppingDistance = 400;
+				var targetThrust = 0;
+
+				if (distance > slowingDistance) {
+					targetThrust = 1;
+				}
+				else if (distance < stoppingDistance) {
+					targetThrust = 0;
+				}
+				else {
+					targetThrust = (distance - stoppingDistance) / (slowingDistance - stoppingDistance);
+				}
+
+				p.pos.x += Math.cos(p.rot) * 1 * p.speed * deltaTime * targetThrust;
+				p.pos.y += Math.sin(p.rot) * 1 * p.speed * deltaTime * targetThrust;
+				if (enemyCooldown <= 0 && distance < 2000) {
+					shootProjectile(p);
+				}
+			}
+		}
+
+		if (enemyCooldown <= 0) {
+			enemyCooldown = .2;
+		}
+		//#endregion
+
+
+		//#region DRAW PLAYERS
+		updateDrawPlayers();
+
+		//#endregion
+
+		//#region DRAW HITBOXES
+		
+		//updateDrawHitboxes();
+
+		//#endregion
+
+		//#region PROJECTILES LOOP
+		updateProjectiles();
+		//#endregion
+
+		//#region EXPLOSIONS LOOP
+		updateExplosions();
+		//#endregion
+
+		//#region PARTICLES LOOP
+		updateParticles();
+		//#endregion
+
+
+		//#region DRAW HUD
+
+		ctx.translate(lastPos.x, lastPos.y);
+
+		ctx.scale(1 / zoom, 1 / zoom);
+		/*
+		ctx.lineWidth = 1;
+		ctx.strokeStyle="gray";
+		ctx.beginPath();
+		ctx.moveTo(80, 50);
+		ctx.lineTo(80 + 300, 50);
+		ctx.stroke();
+		ctx.lineWidth = 4;
+		ctx.strokeStyle=CSScolor(localPlayer.color);
+		ctx.beginPath();
+		ctx.arc(50, 50,30,-Math.PI/2,(weaponCooldown/cooldownStart*2*Math.PI)-Math.PI/2);
+		ctx.stroke();
+		ctx.beginPath();
+		ctx.moveTo(80, 50);
+		ctx.lineTo(80 + localPlayer.hp*30, 50);
+		ctx.stroke();
+		ctx.lineWidth = 1;
+		*/
+
+
+		//#region DEATH SCREEN
+		if (localPlayer.hp <= 0) {
+			if (gameOverScreenTimeout <= 0) {
+				console.log("HP: ", localPlayer.hp);
+				ctx.fillStyle = CSScolor({ r: 0, g: 0, b: 0 });
+				ctx.fillRect(0, 0, canvas.width, canvas.height);
+				ctx.fillStyle = CSScolor({ r: 80, g: 80, b: 80 });
+				ctx.fillText("Game over. No restart button yet. Sorry.", canvas.width / 2, canvas.height / 2);
+				ctx.fillStyle = CSScolor({ r: 80, g: 80, b: 80 });
+				ctx.fillText("Score: " + localPlayer.score, canvas.width / 2, canvas.height / 2 + 40);
+				running = false;
+			}
+			else gameOverScreenTimeout -= deltaTime;
+
+		}
+		//#endregion
+
+		//#endregion
+
+		ctx.translate(-lastPos.x, -lastPos.y);
+
+	}
+	window.requestAnimationFrame(update);
+}
+//#endregion
+
+//#region UPDATE FUNCTIONS
+
+function updateStars() {
+	ctx.scale(zoom, zoom);
+	ctx.translate(-lastPos.x, -lastPos.y);
+
+	ctx.lineCap = "round";
+	tempStarsAmount.innerHTML = stars.length * sliderStars.value;
+
+	var starMarginWorldspace = {
+		x: starMargin.x / zoom,
+		y: starMargin.y / zoom
+	};
+
+	var starEdges = {
+		xmin: -screen.width / 2 - starMargin.x + cameraPos.x,
+		xmax: screen.width / 2 + starMargin.x + cameraPos.x,
+		ymin: -screen.height / 2 - starMargin.y + cameraPos.y,
+		ymax: screen.height / 2 + starMargin.y + cameraPos.y
+	}
+
+	var starFieldSize = {
+		x: screen.width + 2 * starMargin.x,
+		y: screen.height + 2 * starMargin.y
+	}
+
+	ctx.fillStyle = "white";
+	ctx.strokeStyle = "white";
+
+	var starsOnScreen = 0;
+	for (var i = 0; i < stars.length * min(zoom * 3, sliderStars.value); i++) {
+		var star = stars[i];
+
+		if (cameraMoved) {
+
+			var oldStar = { x: star.x + cameraDelta.x, y: star.y + cameraDelta.y };
+
+			star.x -= cameraDelta.x * (star.z * starSpeed - 1);
+			star.y -= cameraDelta.y * (star.z * starSpeed - 1);
+
+
+			if (testIfOnScreen({ x: star.x, y: star.y }, 0)) {
+				ctx.globalAlpha = star.alpha;
+				starsOnScreen++;
+
+
+				ctx.beginPath();
+				ctx.moveTo(oldStar.x, oldStar.y);
+				ctx.lineTo(star.x, star.y);
+
+				ctx.lineWidth = (star.z * starSize + minStarSize) / zoom;
+				ctx.stroke();
+			}
+
+			if (star.x < starEdges.xmin) star.x += starFieldSize.x;
+			if (star.x > starEdges.xmax) star.x -= starFieldSize.x;
+			if (star.y < starEdges.ymin) star.y += starFieldSize.y;
+			if (star.y > starEdges.ymax) star.y -= starFieldSize.y;
+
+		}
+		else {
+			if (testIfOnScreen({ x: star.x, y: star.y }, 0)) {
+				ctx.globalAlpha = star.alpha;
+				ctx.beginPath();
+				ctx.arc(star.x, star.y, 0.5 * (star.z * starSize + minStarSize) / zoom, 0, 2 * Math.PI);
+				ctx.fill();
+			}
+		}
+
+	}
+	//console.log(starsOnScreen);
+	ctx.globalAlpha = 1;
+	ctx.lineCap = "butt";
+}
+
+function updateDrawPlayers() {
+	for (var i = 0; i < players.length; i++) {
+		var p = players[i];
+		if (p.hp > 0) {
+
+			//TEST IF ON SCREEN
+			if (testIfOnScreen(p.pos, 5000)) {
+				//DRAW TRAIL
+				if (p.initialised) {
+					p.trails.forEach(trail => {
+						trail.update();
+						renderTrail(trail);
+
+					});
+				}
+			}
+
+
+			if (testIfOnScreen(p.pos, 50)) {
+				//DRAW PLAYER
+
+				ctx.lineWidth = 3;
+				ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .1);
+				ctx.beginPath();
+				ctx.arc(p.pos.x, p.pos.y, p.size / 2, 0, Math.PI * 2);
+				ctx.stroke();
+				ctx.strokeStyle = CSScolorAlpha(p.color, .5);
+				ctx.beginPath();
+				ctx.arc(p.pos.x, p.pos.y, p.size / 2, 0, Math.PI * 2 * (p.hp / p.maxHp));
+				ctx.stroke();
+
+
+				//PREDICT POS
+				if (p.id != localPlayer.id) {
+					var predictedPos = predictTargetPos(localPlayer, p, 1500);
+					ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .2);
+					ctx.beginPath();
+					ctx.arc(predictedPos.x, predictedPos.y, 10, 0, Math.PI * 2);
+					ctx.stroke();
+					ctx.setLineDash([10, 15]);
+					ctx.beginPath();
+					ctx.moveTo(p.pos.x, p.pos.y);
+					ctx.lineTo(predictedPos.x, predictedPos.y);
+					ctx.stroke();
+					ctx.setLineDash([]);
+				}
+
+
+
+				ctx.fillStyle = CSScolorAlpha(p.color, .5);
+				ctx.fillText(p.name, p.pos.x, p.pos.y + (p.size * .5) + 30);
+
+				ctx.save();
+				ctx.translate(p.pos.x, p.pos.y);
+				ctx.rotate(p.rot);
+				ctx.translate(-p.pos.x, -p.pos.y);
+				ctx.fillStyle = CSScolor(p.color);
+				//ctx.fillRect(0, 0, canvas.width, canvas.height);
+				//ctx.globalCompositeOperation="destination-in";
+				var pImg = playerImage[p.shipID];
+				if (p.shipID >= playerImageCount)
+					var pImg = playerImage[playerImageCount - 1];
+				ctx.drawImage(pImg, p.pos.x - p.size / 2, p.pos.y - p.size / 2, p.size, p.size);
+				ctx.restore();
+
+				if (p.shieldEnabled) {
+
+					var shieldRatio = p.shield / p.maxShield;
+					ctx.lineWidth = 3 * (shieldRatio);
+					ctx.strokeStyle = CSScolorAlpha(shieldColor, .8 * (shieldRatio));
+					ctx.fillStyle = CSScolorAlpha(shieldColor, .2 * (shieldRatio));
+					ctx.beginPath();
+					ctx.arc(p.pos.x, p.pos.y, p.size / 2 + 10, 0, Math.PI * 2);
+					ctx.stroke();
+					ctx.fill();
+				}
+
+				/*ctx.fillStyle = CSScolor(p.color);
+				ctx.fillText(p.rot,p.pos.x,p.pos.y+30);*/
+				//DRAW SMOKE
+				if (p.hp <= p.maxHp / 2) {
+					if (p.hp <= p.maxHp / 3 && p.hp >= p.maxHp / 5 && frameIndex % 4 == 0) {
+						particles.push(new Particle(p.pos.x + randomFloat(-15, 15), p.pos.y + randomFloat(-15, 15), true, true, -1, 1, 40, { r: 0, g: 0, b: 0 }, .3));
+					}
+					if (p.hp <= p.maxHp / 5 && frameIndex % 3 == 0) {
+						particles.push(new Particle(p.pos.x + randomFloat(-15, 15), p.pos.y + randomFloat(-15, 15), true, true, -1, 1.5, 50, { r: 0, g: 0, b: 0 }, 1));
+					}
+					if (p.hp <= p.maxHp / 10 && frameIndex % 5 == 0) {
+						particles.push(new Particle(p.pos.x + randomFloat(-25, 25), p.pos.y + randomFloat(-25, 25), true, true, -1, 1.2, 10, { r: 200, g: 80, b: 0 }, 1));
+					}
+				}
+			}
+			else {
+				//DRAW POINTER
+
+				ctx.translate(lastPos.x, lastPos.y);
+				ctx.scale(1 / zoom, 1 / zoom);
+				ctx.fillStyle = CSScolor(p.color);
+				var rotToPlayer = objectRot(localPlayer, p);
+				ctx.save();
+				rotateCtx(canvas.width / 2, canvas.height / 2, rotToPlayer);
+				//ctx.fillRect(canvas.width/2 + pointerPos.x - 10,canvas.height/2 + pointerPos.y - 10,20,20);
+				//ctx.fillRect(canvas.width/2 + pointerDistance,canvas.height/2,20,2);
+
+				ctx.beginPath();
+				ctx.moveTo(canvas.width / 2 + pointerDistance + 12, canvas.height / 2);
+				ctx.lineTo(canvas.width / 2 + pointerDistance, canvas.height / 2 - 6);
+				ctx.lineTo(canvas.width / 2 + pointerDistance, canvas.height / 2 + 6);
+				ctx.fill();
+
+				ctx.restore();
+				ctx.scale(zoom, zoom);
+				ctx.translate(-lastPos.x, -lastPos.y);
+			}
+		}
+	}
+}
+
+function updateProjectiles() {
+	for (var i = 0; i < projectiles.length; i++) {
+
+		var p = projectiles[i];
+
+		p.age += deltaTime;
+
+		//#region MOVE PROJECTILE
+		if (!p.guided) {
+			p.pos.x += p.velocity.x * deltaTime;
+			p.pos.y += p.velocity.y * deltaTime;
+		}
+		else {
+			rotateToTarget(p, p.target);
+			p.speed += 800 * deltaTime;
+			p.pos.x += Math.cos(p.rot) * p.speed * deltaTime;
+			p.pos.y += Math.sin(p.rot) * p.speed * deltaTime;
+			p.trail.update();
+			renderTrail(p.trail);
+		}
+		//#endregion
+
+		//#region KILL IF TOO OLD
+		if (p.age > p.lifetime) {
+			/*ctx.fillStyle="white";
+			ctx.beginPath();
+			ctx.arc(p.pos.x, p.pos.y, 50, 0, 2 * Math.PI);
+			ctx.fill();*/
+			createExplosion(p.pos.x, p.pos.y, .5);
+			removeIDFromArray(projectiles, p.id);
+			continue;
+		}
+		//#endregion
+
+		//#region DRAW PROJECTILE
+
+
+		ctx.save();
+		ctx.fillStyle = CSScolor(p.color);
+		rotateCtx(p.pos.x, p.pos.y, p.rot);
+		if (!p.guided) {
+			ctx.fillRect(p.pos.x - 10, p.pos.y - 1.5, 20, 3);
+			ctx.fillStyle = CSScolorAlpha(p.color, 0.5);
+			ctx.fillRect(p.pos.x - 30, p.pos.y - 1.5, 30, 3);
+			ctx.fillStyle = CSScolorAlpha(p.color, 0.3);
+			ctx.fillRect(p.pos.x - 60, p.pos.y - 1.5, 40, 3);
+			ctx.fillStyle = CSScolorAlpha(p.color, 0.2);
+			ctx.fillRect(p.pos.x - 100, p.pos.y - 1.5, 100, 3);
+		}
+		else {
+			ctx.fillRect(p.pos.x - 10, p.pos.y - 2.5, 20, 5);
+
+		}
+		ctx.restore();
+
+
+		//#endregion
+
+		//#region DETECT COLLISION
+
+		//#region SINGLEPLAYER VARIANT
+
+		if (p.shooter == localPlayer) {
+			for (var ii = 0; ii < players.length; ii++) {
+				var player = players[ii];
+				if (player.ai) {
+					if (player.hp > 0 && player.team != p.shooter.team) {
+						if (p.pos.x < player.hitbox[1].x && p.pos.x > player.hitbox[0].x) {
+							if (p.pos.y < player.hitbox[3].y && p.pos.y > player.hitbox[0].y) {
+								if (player.shieldEnabled && player.shield >= 1) {
+									player.shield -= 1;
+									soundShieldHit.play(.2);
+									/*weaponCooldown=.5;
+									cooldownStart=.5;*/
+								}
+								else {
+									player.hp -= 1;
+									soundHit.play(.15);
+								}
+								if (player.hp <= 0) {
+									player.hp = 0;
+									//PLAYER DEATH
+									createExplosion(p.pos.x, p.pos.y, 20);
+									player.speed = 0;
+									enemyCount--;
+									localPlayer.score++;
+									removeIDFromArray(players, player.id);
+								}
+								createExplosion(p.pos.x, p.pos.y, 1);
+								removeIDFromArray(projectiles, p.id);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		//#endregion
+
+		//MULTIPLAYER VARIANT
+		var player = localPlayer
+		if (player.hp > 0 && player.id != p.shooter.id) {
+			if (p.pos.x < player.hitbox[1].x && p.pos.x > player.hitbox[0].x) {
+				if (p.pos.y < player.hitbox[3].y && p.pos.y > player.hitbox[0].y) {
+					if (player.shieldEnabled && player.shield >= 1) {
+						player.shield -= 1;
+						soundShieldHit.play(.2);
+						sendHit(player.id, p.id, true);
+						/*weaponCooldown=.5;
+						cooldownStart=.5;*/
+					}
+					else {
+						player.hp -= 1;
+						soundHit.play(.2);
+						sendHit(player.id, p.id, false);
+					}
+					if (player == localPlayer) {
+						particles.push(new Particle(player.pos.x, player.pos.y, true, false, 1, .12, 10000, { r: 230, g: 20, b: 0 }, .1));
+					}
+					if (player.hp <= 0) {
+						player.hp = 0;
+						shakeScreen(20, 2);
+						sendDeath(player.id, p.shooter.id);
+						//PLAYER DEATH
+						createExplosion(p.pos.x, p.pos.y, 20);
+						player.speed = 0;
+						/*if(player.team == 2){
+							enemyCount--;
+							score++;
+						}*/
+						removeIDFromArray(players, player.id);
+					}
+					else {
+
+						shakeScreen(5, 0.3);
+					}
+					createExplosion(p.pos.x, p.pos.y, 1);
+					removeIDFromArray(projectiles, p.id);
+				}
+			}
+
+
+		}
+		//#endregion
+	}
+}
+
+function updateDrawHitboxes() {
+	{
+		
+		ctx.strokeStyle="red";
+		ctx.lineWidth = 1;
+		ctx.beginPath();
+		ctx.moveTo(localPlayer.hitbox[0].x,localPlayer.hitbox[0].y);
+		for(var i = 0; i < localPlayer.hitbox.length;i++){
+			var p = localPlayer.hitbox[i];
+			ctx.lineTo(p.x,p.y);
+			//console.log(i, p.x,p.y);
+			
+		}
+		ctx.closePath();
+		ctx.stroke();
+		
+		}
+}
+
+function updateExplosions() {
+	for (var i = 0; i < explosions.length; i++) {
+		var e = explosions[i];
+		e.age += deltaTime;
+
+		//DRAW EXPLOSION
+		var lifetimeRatio = (e.lifetime - e.age) / e.lifetime;
+		ctx.fillStyle = CSScolorAlpha(e.color, lifetimeRatio);
+		ctx.beginPath();
+		ctx.arc(e.pos.x, e.pos.y, (1 - lifetimeRatio) * e.radius, 0, 2 * Math.PI);
+		ctx.fill();
+
+		//KILL IF TOO OLD
+		if (e.age > e.lifetime) {
+			/*ctx.fillStyle="white";
+			ctx.beginPath();
+			ctx.arc(p.pos.x, p.pos.y, 50, 0, 2 * Math.PI);
+			ctx.fill();*/
+			removeIDFromArray(explosions, e.id);
+			continue;
+		}
+		/*
+		ctx.save();
+		//ctx.fillStyle=CSScolor(p.color);
+		ctx.fillStyle="red";
+		rotateCtx(p.pos.x,p.pos.y,p.rot);
+		ctx.fillRect(p.pos.x-10,p.pos.y-2,20,4);
+		ctx.restore();
+		*/
+	}
+}
+
+function updateParticles() {
+	for (var i = 0; i < particles.length; i++) {
+		var p = particles[i];
+
+		p.age += deltaTime;
+		//KILL IF TOO OLD
+		if (p.age > p.lifetime) {
+			/*ctx.fillStyle="white";
+			ctx.beginPath();
+			ctx.arc(p.pos.x, p.pos.y, 50, 0, 2 * Math.PI);
+			ctx.fill();*/
+			removeIDFromArray(particles, p.id);
+			continue;
+		}
+
+		var lifetimeRatio = (p.age) / p.lifetime;
+		var tempOpacity = p.opacity;
+		var tempRadius = p.radius;
+		if (p.fadeSize) {
+			tempRadius = p.radius * (1 + (lifetimeRatio * p.sizeFadeDirection));
+			if (tempRadius < 0) {
+				console.log("Invalid particle radius:", p.radius, lifetimeRatio, p.age, p.lifetime);
+			}
+		}
+		if (p.fadeOpacity) {
+			tempOpacity = p.opacity * (1 - Math.abs(2 * (lifetimeRatio - 0.5)));
+		}
+
+		//DRAW PARTICLE
+
+		ctx.fillStyle = CSScolorAlpha(p.color, tempOpacity);
+		ctx.beginPath();
+		ctx.arc(p.pos.x, p.pos.y, tempRadius, 0, 2 * Math.PI);
+		ctx.fill();
+
+		/*
+		ctx.save();
+		//ctx.fillStyle=CSScolor(p.color);
+		ctx.fillStyle="red";
+		rotateCtx(p.pos.x,p.pos.y,p.rot);
+		ctx.fillRect(p.pos.x-10,p.pos.y-2,20,4);
+		ctx.restore();
+		*/
+	}
+}
+
+function updateShooting() {
+	
+		//if(weaponCooldown == 0){
+			localPlayer.energy += localPlayer.energyRecharge * deltaTime;
+			if (localPlayer.energy > localPlayer.maxEnergy) localPlayer.energy = localPlayer.maxEnergy;
+			if (localPlayer.hp > 0) localPlayer.hp += .01 * deltaTime;
+			if (localPlayer.hp > localPlayer.maxHp) localPlayer.hp = localPlayer.maxHp;
+			//}
+	
+			if (weaponCooldown > 0 && localPlayer.energy >= 30 * deltaTime * sliderWeapons.value) {
+				weaponCooldown -= deltaTime * sliderWeapons.value;
+				localPlayer.energy -= 30 * deltaTime * sliderWeapons.value;
+			}
+	
+			if (weaponCooldown < 0) {
+				weaponCooldown = 0;
+			}
+	
+	
+			if (localPlayer.hp > 0) {
+				if (shooting) {
+					if (weaponCooldown <= 0/* && localPlayer.energy >= 5*sliderWeapons.value*/) {
+						//SHOOTING LAG MITIGATION
+						var lagNegation = 3;
+						localPlayer.pos.x += lagNegation * localPlayer.velocity.x * deltaTime;
+						localPlayer.pos.y += lagNegation * localPlayer.velocity.y * deltaTime;
+	
+						shootProjectile(localPlayer);
+	
+						//SHOOTING LAG MITIGATION
+	
+						//localPlayer.energy-=5*sliderWeapons.value;
+						localPlayer.pos.x -= lagNegation * localPlayer.velocity.x * deltaTime;
+						localPlayer.pos.y -= lagNegation * localPlayer.velocity.y * deltaTime;
+						weaponCooldown = maxCooldown;
+						cooldownStart = weaponCooldown;
+					}
+				}
+				if (shootingSecondary) {
+					if (weaponCooldown <= 0) {
+	
+						if (enemyCount > 0) {
+							var tgt = null;
+							var lowestDist = 2 * distancePos(localPlayer, players[1]);
+							for (var t = 0; t < players.length; t++) {
+								if (players[t] != localPlayer) {
+									if (players[t].hp > 0) {
+										d = distancePos(localPlayer, players[t]);
+										if (lowestDist > d) {
+											lowestDist = d;
+											tgt = players[t];
+										}
+									}
+								}
+							}
+							if (tgt != null) {
+								shootGuidedProjectile(localPlayer, tgt);
+								weaponCooldown = 2;
+								cooldownStart = weaponCooldown;
+							}
+						}
+					}
+				}
+	
+				if (shieldEnabled && localPlayer.shield < localPlayer.maxShield && localPlayer.energy >= (localPlayer.shieldEnergyCost * deltaTime * sliderShields.value)) {
+					localPlayer.energy -= localPlayer.shieldEnergyCost * deltaTime * sliderShields.value;
+					localPlayer.shield += localPlayer.shieldRecharge * deltaTime * sliderShields.value;
+					if (localPlayer.shield > localPlayer.maxShield) localPlayer.shield = localPlayer.maxShield;
+	
+				}
+				localPlayer.energy -= localPlayer.engineEnergyCost * sliderEngine.value * deltaTime;
+	
+				if (localPlayer.energy < 0) localPlayer.energy = 0;
+			}
+}
+
+function updateCalcHitboxes() {
+	for (var i = 0; i < players.length; i++) {
+		var p = players[i];
+
+
+
+
+
+
+		p.hitbox = [{ x: p.pos.x - hitboxSize * p.size / 2, y: p.pos.y - hitboxSize * p.size / 2 }, { x: p.pos.x + hitboxSize * p.size / 2, y: p.pos.y - hitboxSize * p.size / 2 }, { x: p.pos.x + hitboxSize * p.size / 2, y: p.pos.y + hitboxSize * p.size / 2 }, { x: p.pos.x - hitboxSize * p.size / 2, y: p.pos.y + hitboxSize * p.size / 2 }]
+	}
+}
+
+function updateWorldspaceBg() {
+	
+	screenWorldspace.width = screen.width / zoom;
+	screenWorldspace.height = screen.height / zoom;
+
+	screenEdges.xmin = cameraPos.x - screenWorldspace.width / 2;
+	screenEdges.xmax = cameraPos.x + screenWorldspace.width / 2;
+	screenEdges.ymin = cameraPos.y - screenWorldspace.height / 2;
+	screenEdges.ymax = cameraPos.y + screenWorldspace.height / 2;
+
+
+
+	cameraMoved = false;
+	if (cameraDelta.x != 0 || cameraDelta.y != 0) {
+		cameraMoved = true;
+	}
+
+	//#region STARS
+	updateStars();
+
+	//#endregion
+
+	//#region SPAWN
+	ctx.lineWidth = 3;
+	ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .1);
+	ctx.fillStyle = ctx.strokeStyle;
+	ctx.beginPath();
+	ctx.arc(200, 200, 100, 0, Math.PI * 2);
+	ctx.arc(200, 200, 110, 0, Math.PI * 2);
+	ctx.stroke();
+	ctx.fillText("SPAWN", 200, 210);
+	//#endregion
+
+	//#region BG IMG
+	/*
+	var bgPos = [];
+	bgPos[0] = screenToWorldCoords({ x: 0, y: 0 });
+	bgPos[1] = screenToWorldCoords({ x: canvas.width, y: 0 });
+	bgPos[2] = screenToWorldCoords({ x: canvas.width, y: canvas.height });
+	bgPos[3] = screenToWorldCoords({ x: 0, y: canvas.height });
+
+
+
+	for (var x = bgPos[0].x - backgroundImage.width - (bgPos[0].x % backgroundImage.width); x < bgPos[1].x; x += backgroundImage.width) {
+		for (var y = bgPos[0].y - backgroundImage.height - (bgPos[0].y % backgroundImage.height); y < bgPos[3].y; y += backgroundImage.height) {
+			//if((x >= bgPos[0].x && x <= bgPos[1].x)||(y >= bgPos[0].y && y <= bgPos[3].y)){
+			//ctx.fillStyle="gray";
+			//ctx.fillRect(x,y,backgroundImage.width, backgroundImage.height);
+			ctx.drawImage(backgroundImage, x, y, backgroundImage.width, backgroundImage.height);
+			//ctx.fillStyle="red";
+			//ctx.fillRect(x,y,10, 10);
+			//}
+		}
+	}
+	
+	*/
+
+	/*
+	ctx.fillStyle="gray";
+	for(var b=0;b<4;b++){
+		bgPos[b].x -= bgPos[b].x % backgroundImage.width;
+		bgPos[b].y -= bgPos[b].y % backgroundImage.height;
+		ctx.fillRect(bgPos[b].x-5,bgPos[b].y-5,10,10);
+		ctx.drawImage(backgroundImage,bgPos[b].x,bgPos[b].y,backgroundImage.width,backgroundImage.height);
+	}*/
+	/*
+	bgPos.x -= bgPos.x % backgroundImage.width;
+	bgPos.x -= backgroundImage.width;
+	bgPos.y -= bgPos.y % backgroundImage.height;
+	bgPos.y -= backgroundImage.height;
+	ctx.drawImage(backgroundImage,bgPos.x,bgPos.y,backgroundImage.width*4,backgroundImage.height*4);*/
+	//#endregion
+
+}
+
+function updateScreenspaceBg() {
+	
+	lastPos.x = cameraPos.x - canvas.width / 2 / zoom;
+	lastPos.y = cameraPos.y - canvas.height / 2 / zoom;
+
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+	ctx.fillStyle = CSScolor({ r: 19, g: 22, b: 25 });
+	ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+	ctx.fillStyle = "white";
+	ctx.textAlign = "left";
+
+
+	/*REMOVE THIS*/tempFpsCounter.innerHTML = (fpsCounterFrames / currentFps).toFixed(0);
+
+	if (showFps) {
+		ctx.fillText("DeltaTime: " + trueDeltaTime.toFixed(3), 30, 30);
+		ctx.fillText("True FPS: " + (1 / trueDeltaTime).toFixed(0), 30, 60);
+		ctx.fillText("Avg FPS: " + (fpsCounterFrames / currentFps).toFixed(0), 30, 90);
+	}
+
+	//AIMING CURSOR
+	/*ctx.strokeStyle = CSScolor({r:80,g:80,b:80});
+	ctx.beginPath();
+	ctx.arc(mousePos.x, mousePos.y,10,0,Math.PI*2);
+	ctx.stroke();
+	*/
+	ctx.font = "20px Century Gothic";
+	ctx.textAlign = "left";
+
+
+	ctx.fillStyle = CSScolor({ r: 80, g: 80, b: 80 });
+
+	ctx.textAlign = "center";
+	//#region CONTROLS PROMPT
+
+
+	/*if(!alternativeControls){
+		ctx.fillStyle = CSScolor({r:80,g:80,b:80});
+		ctx.fillText("press E for alternative controls", canvas.width/2, canvas.height - 320);
+	}
+	else {
+		ctx.fillStyle = CSScolor({r:50,g:50,b:50});
+		ctx.fillText("press E for normal controls", canvas.width/2, canvas.height - 320);
+	}*/
+	/*if(inertialDampening){
+		ctx.fillStyle = CSScolor({r:80,g:80,b:80});
+		ctx.fillText("press Q to turn off inertial dampening", canvas.width/2, canvas.height - 260);
+		
+	}
+	else {
+		ctx.fillStyle = CSScolor({r:50,g:50,b:50});
+		ctx.fillText("press Q to turn on inertial dampening", canvas.width/2, canvas.height - 260);
+	}*/
+
+	if (!menuOpen) {
+		ctx.fillStyle = CSScolor({ r: 80, g: 80, b: 80 });
+		ctx.fillText("(ESC) shop", canvas.width / 2, canvas.height - 100);
+
+	}
+	/*if(shieldEnabled){
+		ctx.fillStyle = CSScolor({r:80,g:80,b:80});
+		ctx.fillText("(R) turn off shields", canvas.width/2, canvas.height - 140);
+		
+	}
+	else{
+		ctx.fillStyle = CSScolor({r:50,g:50,b:50});
+		ctx.fillText("(R) turn on shields", canvas.width/2, canvas.height - 140);
+	}*/
+	ctx.fillStyle = CSScolor({ r: 80, g: 80, b: 80 });
+	ctx.fillText("Kills: " + localPlayer.score, canvas.width / 2, canvas.height - 60);
+
+	drawKeyPrompt(keyBindings.inertialDampening, keyIDs.inertialDampening, 150, 450, inertialDampening);
+	drawKeyPrompt(keyBindings.switchControls, keyIDs.alternativeControls, 285, 480, !alternativeControls);
+	drawKeyPrompt(keyBindings.switchShield, keyIDs.shieldEnabled, 420, 450, shieldEnabled);
+
+	drawWarning("Losing Energy", 80, 230, (localPlayer.energyRecharge < localPlayer.shieldEnergyCost && shieldEnabled && localPlayer.shield < localPlayer.maxShield));
+	drawWarning("Low Energy", 80, 290, (localPlayer.energy < localPlayer.maxEnergy / 5));
+
+	drawWarning("Low Shield", 500, 230, (localPlayer.shield < 2 && shieldEnabled));
+	drawWarning("Low HP", 500, 290, (localPlayer.hp < 3));
+
+
+
+
+	//#endregion
+
+	//#region PLAYER CIRCLE HUD
+
+	ctx.lineWidth = 3;
+	ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .1);
+	ctx.beginPath();
+	ctx.arc(canvas.width / 2, canvas.height / 2, pointerDistance + 6, 0, Math.PI * 2);
+	ctx.stroke();
+	ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .2);
+	ctx.beginPath();
+	ctx.arc(canvas.width / 2 + localPlayer.velocity.x * pointerDistance / 900, canvas.height / 2 + localPlayer.velocity.y * pointerDistance / 900, 5, 0, Math.PI * 2);
+	ctx.stroke();
+
+	//#region GAUGES
+
+	//HP BG
+	if (localPlayer.maxHp < 200)
+		ctx.setLineDash([(2 * (pointerDistance - 5) * Math.PI / 4) / (localPlayer.maxHp) - 5, 5]);
+	else
+		ctx.setLineDash([]);
+	ctx.beginPath();
+	ctx.arc(canvas.width / 2, canvas.height / 2, pointerDistance - 15, Math.PI * (0.25), Math.PI * (1.75), true);
+	ctx.stroke();
+
+	//COOLDOWN BG
+	ctx.setLineDash([]);
+	ctx.beginPath();
+	ctx.arc(canvas.width / 2, canvas.height / 2, pointerDistance - 5, Math.PI * (0.75), Math.PI * (1.25));
+	ctx.stroke();
+
+	//ENERGY BG
+	if (localPlayer.maxEnergy < 300)
+		ctx.setLineDash([(2 * (pointerDistance - 15) * Math.PI / 4) / (localPlayer.maxEnergy / 5) - 5, 5]);
+	else
+		ctx.setLineDash([]);
+	ctx.beginPath();
+	ctx.arc(canvas.width / 2, canvas.height / 2, pointerDistance - 15, Math.PI * (0.75), Math.PI * (1.25));
+	ctx.stroke();
+	ctx.setLineDash([]);
+
+	//HP
+
+	if (localPlayer.maxHp < 40)
+		ctx.setLineDash([(2 * (pointerDistance - 5) * Math.PI / 4) / (localPlayer.maxHp) - 5, 5]);
+	else
+		ctx.setLineDash([]);
+	ctx.strokeStyle = CSScolor(localPlayer.color);
+
+	ctx.beginPath();
+	ctx.arc(canvas.width / 2, canvas.height / 2, pointerDistance - 15, Math.PI * (0.25), Math.PI * (1.75 - 0.001 + 0.5 * (1 - (localPlayer.hp / localPlayer.maxHp))), true);
+	ctx.stroke();
+	ctx.setLineDash([]);
+
+	//SHIELD
+
+	if (shieldEnabled) {
+		if (localPlayer.maxShield < 40)
+			ctx.setLineDash([(2 * (pointerDistance - 5) * Math.PI / 4) / (localPlayer.maxShield), 5]);
+		else
+			ctx.setLineDash([]);
+
+		ctx.strokeStyle = CSScolorAlpha(shieldColor, .8);
+		ctx.beginPath();
+		ctx.arc(canvas.width / 2, canvas.height / 2, pointerDistance - 5, Math.PI * (0.25), Math.PI * (1.75 - 0.001 + 0.5 * (1 - (localPlayer.shield / localPlayer.maxShield))), true);
+		ctx.stroke();
+		ctx.setLineDash([]);
+	}
+
+	//COOLDOWN
+
+	ctx.strokeStyle = CSScolor({ r: 180, g: 30, b: 30 });
+
+	ctx.beginPath();
+	ctx.arc(canvas.width / 2, canvas.height / 2, pointerDistance - 5, Math.PI * (0.75), Math.PI * (1.25 - 0.5 * ((weaponCooldown / cooldownStart))));
+	ctx.stroke();
+
+	ctx.strokeStyle = CSScolor({ r: 170, g: 110, b: 40 });
+	if (localPlayer.maxEnergy < 300)
+		ctx.setLineDash([(2 * (pointerDistance - 15) * Math.PI / 4) / (localPlayer.maxEnergy / 5) - 5, 5]);
+	else
+		ctx.setLineDash([]);
+	ctx.beginPath();
+	ctx.arc(canvas.width / 2, canvas.height / 2, pointerDistance - 15, Math.PI * (0.75), Math.PI * (1.25 - 0.5 * (1 - (localPlayer.energy / localPlayer.maxEnergy))));
+	ctx.stroke();
+	ctx.setLineDash([]);
+	//#endregion
+
+	//#endregion
+
+}
+
+function updateLocalMovement() {
+	maxVelocityMagnitude = localPlayer.speed;
 
 		if (alternativeControls) {
 			localPlayer.rot += inputRotation * localPlayer.rotationSpeed * deltaTime;
@@ -1488,912 +2436,6 @@ function update(timestamp) {
 
 		localPlayer.pos.x += localPlayer.velocity.x * deltaTime;
 		localPlayer.pos.y += localPlayer.velocity.y * deltaTime;
-
-		//#endregion
-
-		//#region CAMERA MOVEMENT
-		oldCameraPos.x = cameraPos.x;
-		oldCameraPos.y = cameraPos.y;
-		cameraPos.x = localPlayer.pos.x;
-		cameraPos.y = localPlayer.pos.y;
-		if (screenShake > 0) {
-			cameraPos.x += randomFloat(-screenShake, screenShake);
-			cameraPos.y += randomFloat(-screenShake, screenShake);
-			screenShake -= screenShakeDecay * deltaTime;
-			if (screenShake < 0) screenShake = 0;
-		}
-		cameraDelta.x = cameraPos.x - oldCameraPos.x;
-		cameraDelta.y = cameraPos.y - oldCameraPos.y;
-		//#endregion
-
-		//#region HITBOX CALCULATION
-		for (var i = 0; i < players.length; i++) {
-			var p = players[i];
-
-
-
-
-
-
-			p.hitbox = [{ x: p.pos.x - hitboxSize * p.size / 2, y: p.pos.y - hitboxSize * p.size / 2 }, { x: p.pos.x + hitboxSize * p.size / 2, y: p.pos.y - hitboxSize * p.size / 2 }, { x: p.pos.x + hitboxSize * p.size / 2, y: p.pos.y + hitboxSize * p.size / 2 }, { x: p.pos.x - hitboxSize * p.size / 2, y: p.pos.y + hitboxSize * p.size / 2 }]
-		}
-		//#endregion
-
-
-		//#region SCREEN SPACE BG FX
-
-		lastPos.x = cameraPos.x - canvas.width / 2 / zoom;
-		lastPos.y = cameraPos.y - canvas.height / 2 / zoom;
-
-		ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-		ctx.fillStyle = CSScolor({ r: 19, g: 22, b: 25 });
-		ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-		ctx.fillStyle = "white";
-		ctx.textAlign = "left";
-
-
-		/*REMOVE THIS*/tempFpsCounter.innerHTML = (fpsCounterFrames / currentFps).toFixed(0);
-
-		if (showFps) {
-			ctx.fillText("DeltaTime: " + trueDeltaTime.toFixed(3), 30, 30);
-			ctx.fillText("True FPS: " + (1 / trueDeltaTime).toFixed(0), 30, 60);
-			ctx.fillText("Avg FPS: " + (fpsCounterFrames / currentFps).toFixed(0), 30, 90);
-		}
-
-		//AIMING CURSOR
-		/*ctx.strokeStyle = CSScolor({r:80,g:80,b:80});
-		ctx.beginPath();
-		ctx.arc(mousePos.x, mousePos.y,10,0,Math.PI*2);
-		ctx.stroke();
-		*/
-		ctx.font = "20px Century Gothic";
-		ctx.textAlign = "left";
-
-
-		ctx.fillStyle = CSScolor({ r: 80, g: 80, b: 80 });
-
-		ctx.textAlign = "center";
-		//#region CONTROLS PROMPT
-
-
-		/*if(!alternativeControls){
-			ctx.fillStyle = CSScolor({r:80,g:80,b:80});
-			ctx.fillText("press E for alternative controls", canvas.width/2, canvas.height - 320);
-		}
-		else {
-			ctx.fillStyle = CSScolor({r:50,g:50,b:50});
-			ctx.fillText("press E for normal controls", canvas.width/2, canvas.height - 320);
-		}*/
-		/*if(inertialDampening){
-			ctx.fillStyle = CSScolor({r:80,g:80,b:80});
-			ctx.fillText("press Q to turn off inertial dampening", canvas.width/2, canvas.height - 260);
-			
-		}
-		else {
-			ctx.fillStyle = CSScolor({r:50,g:50,b:50});
-			ctx.fillText("press Q to turn on inertial dampening", canvas.width/2, canvas.height - 260);
-		}*/
-
-		if (!menuOpen) {
-			ctx.fillStyle = CSScolor({ r: 80, g: 80, b: 80 });
-			ctx.fillText("(ESC) shop", canvas.width / 2, canvas.height - 100);
-
-		}
-		/*if(shieldEnabled){
-			ctx.fillStyle = CSScolor({r:80,g:80,b:80});
-			ctx.fillText("(R) turn off shields", canvas.width/2, canvas.height - 140);
-			
-		}
-		else{
-			ctx.fillStyle = CSScolor({r:50,g:50,b:50});
-			ctx.fillText("(R) turn on shields", canvas.width/2, canvas.height - 140);
-		}*/
-		ctx.fillStyle = CSScolor({ r: 80, g: 80, b: 80 });
-		ctx.fillText("Kills: " + localPlayer.score, canvas.width / 2, canvas.height - 60);
-
-		drawKeyPrompt(keyBindings.inertialDampening, keyIDs.inertialDampening, 150, 450, inertialDampening);
-		drawKeyPrompt(keyBindings.switchControls, keyIDs.alternativeControls, 285, 480, !alternativeControls);
-		drawKeyPrompt(keyBindings.switchShield, keyIDs.shieldEnabled, 420, 450, shieldEnabled);
-
-		drawWarning("Losing Energy", 80, 230, (localPlayer.energyRecharge < localPlayer.shieldEnergyCost && shieldEnabled && localPlayer.shield < localPlayer.maxShield));
-		drawWarning("Low Energy", 80, 290, (localPlayer.energy < localPlayer.maxEnergy / 5));
-
-		drawWarning("Low Shield", 500, 230, (localPlayer.shield < 2 && shieldEnabled));
-		drawWarning("Low HP", 500, 290, (localPlayer.hp < 3));
-
-
-
-
-		//#endregion
-
-		//#region PLAYER CIRCLE HUD
-
-		ctx.lineWidth = 3;
-		ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .1);
-		ctx.beginPath();
-		ctx.arc(canvas.width / 2, canvas.height / 2, pointerDistance + 6, 0, Math.PI * 2);
-		ctx.stroke();
-		ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .2);
-		ctx.beginPath();
-		ctx.arc(canvas.width / 2 + localPlayer.velocity.x * pointerDistance / 900, canvas.height / 2 + localPlayer.velocity.y * pointerDistance / 900, 5, 0, Math.PI * 2);
-		ctx.stroke();
-
-		//#region GAUGES
-
-		//HP BG
-		if (localPlayer.maxHp < 200)
-			ctx.setLineDash([(2 * (pointerDistance - 5) * Math.PI / 4) / (localPlayer.maxHp) - 5, 5]);
-		else
-			ctx.setLineDash([]);
-		ctx.beginPath();
-		ctx.arc(canvas.width / 2, canvas.height / 2, pointerDistance - 15, Math.PI * (0.25), Math.PI * (1.75), true);
-		ctx.stroke();
-
-		//COOLDOWN BG
-		ctx.setLineDash([]);
-		ctx.beginPath();
-		ctx.arc(canvas.width / 2, canvas.height / 2, pointerDistance - 5, Math.PI * (0.75), Math.PI * (1.25));
-		ctx.stroke();
-
-		//ENERGY BG
-		if (localPlayer.maxEnergy < 300)
-			ctx.setLineDash([(2 * (pointerDistance - 15) * Math.PI / 4) / (localPlayer.maxEnergy / 5) - 5, 5]);
-		else
-			ctx.setLineDash([]);
-		ctx.beginPath();
-		ctx.arc(canvas.width / 2, canvas.height / 2, pointerDistance - 15, Math.PI * (0.75), Math.PI * (1.25));
-		ctx.stroke();
-		ctx.setLineDash([]);
-
-		//HP
-
-		if (localPlayer.maxHp < 40)
-			ctx.setLineDash([(2 * (pointerDistance - 5) * Math.PI / 4) / (localPlayer.maxHp) - 5, 5]);
-		else
-			ctx.setLineDash([]);
-		ctx.strokeStyle = CSScolor(localPlayer.color);
-
-		ctx.beginPath();
-		ctx.arc(canvas.width / 2, canvas.height / 2, pointerDistance - 15, Math.PI * (0.25), Math.PI * (1.75 - 0.001 + 0.5 * (1 - (localPlayer.hp / localPlayer.maxHp))), true);
-		ctx.stroke();
-		ctx.setLineDash([]);
-
-		//SHIELD
-
-		if (shieldEnabled) {
-			if (localPlayer.maxShield < 40)
-				ctx.setLineDash([(2 * (pointerDistance - 5) * Math.PI / 4) / (localPlayer.maxShield), 5]);
-			else
-				ctx.setLineDash([]);
-
-			ctx.strokeStyle = CSScolorAlpha(shieldColor, .8);
-			ctx.beginPath();
-			ctx.arc(canvas.width / 2, canvas.height / 2, pointerDistance - 5, Math.PI * (0.25), Math.PI * (1.75 - 0.001 + 0.5 * (1 - (localPlayer.shield / localPlayer.maxShield))), true);
-			ctx.stroke();
-			ctx.setLineDash([]);
-		}
-
-		//COOLDOWN
-
-		ctx.strokeStyle = CSScolor({ r: 180, g: 30, b: 30 });
-
-		ctx.beginPath();
-		ctx.arc(canvas.width / 2, canvas.height / 2, pointerDistance - 5, Math.PI * (0.75), Math.PI * (1.25 - 0.5 * ((weaponCooldown / cooldownStart))));
-		ctx.stroke();
-
-		ctx.strokeStyle = CSScolor({ r: 170, g: 110, b: 40 });
-		if (localPlayer.maxEnergy < 300)
-			ctx.setLineDash([(2 * (pointerDistance - 15) * Math.PI / 4) / (localPlayer.maxEnergy / 5) - 5, 5]);
-		else
-			ctx.setLineDash([]);
-		ctx.beginPath();
-		ctx.arc(canvas.width / 2, canvas.height / 2, pointerDistance - 15, Math.PI * (0.75), Math.PI * (1.25 - 0.5 * (1 - (localPlayer.energy / localPlayer.maxEnergy))));
-		ctx.stroke();
-		ctx.setLineDash([]);
-		//#endregion
-
-		//#endregion
-
-		//#endregion
-
-		//#region WORLD SPACE BG FX
-
-		screenWorldspace.width = screen.width / zoom;
-		screenWorldspace.height = screen.height / zoom;
-
-		screenEdges.xmin = cameraPos.x - screenWorldspace.width / 2;
-		screenEdges.xmax = cameraPos.x + screenWorldspace.width / 2;
-		screenEdges.ymin = cameraPos.y - screenWorldspace.height / 2;
-		screenEdges.ymax = cameraPos.y + screenWorldspace.height / 2;
-
-
-
-		var cameraMoved = false;
-		if (cameraDelta.x != 0 || cameraDelta.y != 0) {
-			cameraMoved = true;
-		}
-
-		//#region STARS
-
-		ctx.scale(zoom, zoom);
-		ctx.translate(-lastPos.x, -lastPos.y);
-
-		ctx.lineCap = "round";
-		tempStarsAmount.innerHTML = stars.length * sliderStars.value;
-
-		var starMarginWorldspace = {
-			x: starMargin.x / zoom,
-			y: starMargin.y / zoom
-		};
-
-		var starEdges = {
-			xmin: -screen.width / 2 - starMargin.x + cameraPos.x,
-			xmax: screen.width / 2 + starMargin.x + cameraPos.x,
-			ymin: -screen.height / 2 - starMargin.y + cameraPos.y,
-			ymax: screen.height / 2 + starMargin.y + cameraPos.y
-		}
-
-		var starFieldSize = {
-			x: screen.width + 2 * starMargin.x,
-			y: screen.height + 2 * starMargin.y
-		}
-
-		ctx.fillStyle = "white";
-		ctx.strokeStyle = "white";
-
-		var starsOnScreen = 0;
-		for (var i = 0; i < stars.length * min(zoom * 3, sliderStars.value); i++) {
-			var star = stars[i];
-
-			if (cameraMoved) {
-
-				var oldStar = { x: star.x + cameraDelta.x, y: star.y + cameraDelta.y };
-
-				star.x -= cameraDelta.x * (star.z * starSpeed - 1);
-				star.y -= cameraDelta.y * (star.z * starSpeed - 1);
-
-
-				if (testIfOnScreen({ x: star.x, y: star.y }, 0)) {
-					ctx.globalAlpha = star.alpha;
-					starsOnScreen++;
-
-
-					ctx.beginPath();
-					ctx.moveTo(oldStar.x, oldStar.y);
-					ctx.lineTo(star.x, star.y);
-
-					ctx.lineWidth = (star.z * starSize + minStarSize) / zoom;
-					ctx.stroke();
-				}
-
-				if (star.x < starEdges.xmin) star.x += starFieldSize.x;
-				if (star.x > starEdges.xmax) star.x -= starFieldSize.x;
-				if (star.y < starEdges.ymin) star.y += starFieldSize.y;
-				if (star.y > starEdges.ymax) star.y -= starFieldSize.y;
-
-			}
-			else {
-				if (testIfOnScreen({ x: star.x, y: star.y }, 0)) {
-					ctx.globalAlpha = star.alpha;
-					ctx.beginPath();
-					ctx.arc(star.x, star.y, 0.5 * (star.z * starSize + minStarSize) / zoom, 0, 2 * Math.PI);
-					ctx.fill();
-				}
-			}
-
-		}
-		//console.log(starsOnScreen);
-		ctx.globalAlpha = 1;
-		ctx.lineCap = "butt";
-
-		//#endregion
-
-		//#region SPAWN
-		ctx.lineWidth = 3;
-		ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .1);
-		ctx.fillStyle = ctx.strokeStyle;
-		ctx.beginPath();
-		ctx.arc(200, 200, 100, 0, Math.PI * 2);
-		ctx.arc(200, 200, 110, 0, Math.PI * 2);
-		ctx.stroke();
-		ctx.fillText("SPAWN", 200, 210);
-		//#endregion
-
-		//#region BG IMG
-		/*
-		var bgPos = [];
-		bgPos[0] = screenToWorldCoords({ x: 0, y: 0 });
-		bgPos[1] = screenToWorldCoords({ x: canvas.width, y: 0 });
-		bgPos[2] = screenToWorldCoords({ x: canvas.width, y: canvas.height });
-		bgPos[3] = screenToWorldCoords({ x: 0, y: canvas.height });
-
-
-
-		for (var x = bgPos[0].x - backgroundImage.width - (bgPos[0].x % backgroundImage.width); x < bgPos[1].x; x += backgroundImage.width) {
-			for (var y = bgPos[0].y - backgroundImage.height - (bgPos[0].y % backgroundImage.height); y < bgPos[3].y; y += backgroundImage.height) {
-				//if((x >= bgPos[0].x && x <= bgPos[1].x)||(y >= bgPos[0].y && y <= bgPos[3].y)){
-				//ctx.fillStyle="gray";
-				//ctx.fillRect(x,y,backgroundImage.width, backgroundImage.height);
-				ctx.drawImage(backgroundImage, x, y, backgroundImage.width, backgroundImage.height);
-				//ctx.fillStyle="red";
-				//ctx.fillRect(x,y,10, 10);
-				//}
-			}
-		}
-		
-		*/
-
-		/*
-		ctx.fillStyle="gray";
-		for(var b=0;b<4;b++){
-			bgPos[b].x -= bgPos[b].x % backgroundImage.width;
-			bgPos[b].y -= bgPos[b].y % backgroundImage.height;
-			ctx.fillRect(bgPos[b].x-5,bgPos[b].y-5,10,10);
-			ctx.drawImage(backgroundImage,bgPos[b].x,bgPos[b].y,backgroundImage.width,backgroundImage.height);
-		}*/
-		/*
-		bgPos.x -= bgPos.x % backgroundImage.width;
-		bgPos.x -= backgroundImage.width;
-		bgPos.y -= bgPos.y % backgroundImage.height;
-		bgPos.y -= backgroundImage.height;
-		ctx.drawImage(backgroundImage,bgPos.x,bgPos.y,backgroundImage.width*4,backgroundImage.height*4);*/
-		//#endregion
-
-		//#endregion
-
-
-		//#region ENEMY SPAWNING
-
-		if (enemyCount < maxEnemyCount) {
-			enemySpawnTimer += deltaTime;
-			if (enemySpawnTimer > 5) {
-				var aip = addPlayer(true);
-				aip.team = 2;
-				enemyCount++;
-				enemySpawnTimer = 0;
-			}
-		}
-
-		enemyCooldown -= deltaTime;
-
-
-		//#endregion
-
-		//#region PLAYERS LOOP
-
-		for (var i = 0; i < players.length; i++) {
-			//var p = players[i];
-		}
-
-		//#endregion
-
-		//#region LOCAL SHOOTING
-
-		//if(weaponCooldown == 0){
-		localPlayer.energy += localPlayer.energyRecharge * deltaTime;
-		if (localPlayer.energy > localPlayer.maxEnergy) localPlayer.energy = localPlayer.maxEnergy;
-		if (localPlayer.hp > 0) localPlayer.hp += .01 * deltaTime;
-		if (localPlayer.hp > localPlayer.maxHp) localPlayer.hp = localPlayer.maxHp;
-		//}
-
-		if (weaponCooldown > 0 && localPlayer.energy >= 30 * deltaTime * sliderWeapons.value) {
-			weaponCooldown -= deltaTime * sliderWeapons.value;
-			localPlayer.energy -= 30 * deltaTime * sliderWeapons.value;
-		}
-
-		if (weaponCooldown < 0) {
-			weaponCooldown = 0;
-		}
-
-
-		if (localPlayer.hp > 0) {
-			if (shooting) {
-				if (weaponCooldown <= 0/* && localPlayer.energy >= 5*sliderWeapons.value*/) {
-					//SHOOTING LAG MITIGATION
-					var lagNegation = 3;
-					localPlayer.pos.x += lagNegation * localPlayer.velocity.x * deltaTime;
-					localPlayer.pos.y += lagNegation * localPlayer.velocity.y * deltaTime;
-
-					shootProjectile(localPlayer);
-
-					//SHOOTING LAG MITIGATION
-
-					//localPlayer.energy-=5*sliderWeapons.value;
-					localPlayer.pos.x -= lagNegation * localPlayer.velocity.x * deltaTime;
-					localPlayer.pos.y -= lagNegation * localPlayer.velocity.y * deltaTime;
-					weaponCooldown = maxCooldown;
-					cooldownStart = weaponCooldown;
-				}
-			}
-			if (shootingSecondary) {
-				if (weaponCooldown <= 0) {
-
-					if (enemyCount > 0) {
-						var tgt = null;
-						var lowestDist = 2 * distancePos(localPlayer, players[1]);
-						for (var t = 0; t < players.length; t++) {
-							if (players[t] != localPlayer) {
-								if (players[t].hp > 0) {
-									d = distancePos(localPlayer, players[t]);
-									if (lowestDist > d) {
-										lowestDist = d;
-										tgt = players[t];
-									}
-								}
-							}
-						}
-						if (tgt != null) {
-							shootGuidedProjectile(localPlayer, tgt);
-							weaponCooldown = 2;
-							cooldownStart = weaponCooldown;
-						}
-					}
-				}
-			}
-
-			if (shieldEnabled && localPlayer.shield < localPlayer.maxShield && localPlayer.energy >= (localPlayer.shieldEnergyCost * deltaTime * sliderShields.value)) {
-				localPlayer.energy -= localPlayer.shieldEnergyCost * deltaTime * sliderShields.value;
-				localPlayer.shield += localPlayer.shieldRecharge * deltaTime * sliderShields.value;
-				if (localPlayer.shield > localPlayer.maxShield) localPlayer.shield = localPlayer.maxShield;
-
-			}
-			localPlayer.energy -= localPlayer.engineEnergyCost * sliderEngine.value * deltaTime;
-
-			if (localPlayer.energy < 0) localPlayer.energy = 0;
-		}
-		//#endregion
-
-		//#region PLAYERS AI
-		for (var i = 0; i < players.length; i++) {
-			var p = players[i];
-			if (p.ai && p.hp > 0) {
-				rotateToTarget(p, { pos: predictTargetPos(p, localPlayer, 1000) });
-
-				var distance = distancePos(localPlayer, p);
-
-				var slowingDistance = 700;
-				var stoppingDistance = 400;
-				var targetThrust = 0;
-
-				if (distance > slowingDistance) {
-					targetThrust = 1;
-				}
-				else if (distance < stoppingDistance) {
-					targetThrust = 0;
-				}
-				else {
-					targetThrust = (distance - stoppingDistance) / (slowingDistance - stoppingDistance);
-				}
-
-				p.pos.x += Math.cos(p.rot) * 1 * p.speed * deltaTime * targetThrust;
-				p.pos.y += Math.sin(p.rot) * 1 * p.speed * deltaTime * targetThrust;
-				if (enemyCooldown <= 0 && distance < 2000) {
-					shootProjectile(p);
-				}
-			}
-		}
-
-		if (enemyCooldown <= 0) {
-			enemyCooldown = .2;
-		}
-		//#endregion
-
-
-		//#region DRAW PLAYERS
-		for (var i = 0; i < players.length; i++) {
-			var p = players[i];
-			if (p.hp > 0) {
-
-				//TEST IF ON SCREEN
-				if (testIfOnScreen(p.pos, 5000)) {
-					//DRAW TRAIL
-					if (p.initialised) {
-						p.trails.forEach(trail => {
-							trail.update();
-							renderTrail(trail);
-
-						});
-					}
-				}
-
-
-				if (testIfOnScreen(p.pos, 50)) {
-					//DRAW PLAYER
-
-					ctx.lineWidth = 3;
-					ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .1);
-					ctx.beginPath();
-					ctx.arc(p.pos.x, p.pos.y, p.size / 2, 0, Math.PI * 2);
-					ctx.stroke();
-					ctx.strokeStyle = CSScolorAlpha(p.color, .5);
-					ctx.beginPath();
-					ctx.arc(p.pos.x, p.pos.y, p.size / 2, 0, Math.PI * 2 * (p.hp / p.maxHp));
-					ctx.stroke();
-
-
-					//PREDICT POS
-					if (p.id != localPlayer.id) {
-						var predictedPos = predictTargetPos(localPlayer, p, 1500);
-						ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .2);
-						ctx.beginPath();
-						ctx.arc(predictedPos.x, predictedPos.y, 10, 0, Math.PI * 2);
-						ctx.stroke();
-						ctx.setLineDash([10, 15]);
-						ctx.beginPath();
-						ctx.moveTo(p.pos.x, p.pos.y);
-						ctx.lineTo(predictedPos.x, predictedPos.y);
-						ctx.stroke();
-						ctx.setLineDash([]);
-					}
-
-
-
-					ctx.fillStyle = CSScolorAlpha(p.color, .5);
-					ctx.fillText(p.name, p.pos.x, p.pos.y + (p.size * .5) + 30);
-
-					ctx.save();
-					ctx.translate(p.pos.x, p.pos.y);
-					ctx.rotate(p.rot);
-					ctx.translate(-p.pos.x, -p.pos.y);
-					ctx.fillStyle = CSScolor(p.color);
-					//ctx.fillRect(0, 0, canvas.width, canvas.height);
-					//ctx.globalCompositeOperation="destination-in";
-					var pImg = playerImage[p.shipID];
-					if (p.shipID >= playerImageCount)
-						var pImg = playerImage[playerImageCount - 1];
-					ctx.drawImage(pImg, p.pos.x - p.size / 2, p.pos.y - p.size / 2, p.size, p.size);
-					ctx.restore();
-
-					if (p.shieldEnabled) {
-
-						var shieldRatio = p.shield / p.maxShield;
-						ctx.lineWidth = 3 * (shieldRatio);
-						ctx.strokeStyle = CSScolorAlpha(shieldColor, .8 * (shieldRatio));
-						ctx.fillStyle = CSScolorAlpha(shieldColor, .2 * (shieldRatio));
-						ctx.beginPath();
-						ctx.arc(p.pos.x, p.pos.y, p.size / 2 + 10, 0, Math.PI * 2);
-						ctx.stroke();
-						ctx.fill();
-					}
-
-					/*ctx.fillStyle = CSScolor(p.color);
-					ctx.fillText(p.rot,p.pos.x,p.pos.y+30);*/
-					//DRAW SMOKE
-					if (p.hp <= p.maxHp / 2) {
-						if (p.hp <= p.maxHp / 3 && p.hp >= p.maxHp / 5 && frameIndex % 4 == 0) {
-							particles.push(new Particle(p.pos.x + randomFloat(-15, 15), p.pos.y + randomFloat(-15, 15), true, true, -1, 1, 40, { r: 0, g: 0, b: 0 }, .3));
-						}
-						if (p.hp <= p.maxHp / 5 && frameIndex % 3 == 0) {
-							particles.push(new Particle(p.pos.x + randomFloat(-15, 15), p.pos.y + randomFloat(-15, 15), true, true, -1, 1.5, 50, { r: 0, g: 0, b: 0 }, 1));
-						}
-						if (p.hp <= p.maxHp / 10 && frameIndex % 5 == 0) {
-							particles.push(new Particle(p.pos.x + randomFloat(-25, 25), p.pos.y + randomFloat(-25, 25), true, true, -1, 1.2, 10, { r: 200, g: 80, b: 0 }, 1));
-						}
-					}
-				}
-				else {
-					//DRAW POINTER
-
-					ctx.translate(lastPos.x, lastPos.y);
-					ctx.scale(1 / zoom, 1 / zoom);
-					ctx.fillStyle = CSScolor(p.color);
-					var rotToPlayer = objectRot(localPlayer, p);
-					ctx.save();
-					rotateCtx(canvas.width / 2, canvas.height / 2, rotToPlayer);
-					//ctx.fillRect(canvas.width/2 + pointerPos.x - 10,canvas.height/2 + pointerPos.y - 10,20,20);
-					//ctx.fillRect(canvas.width/2 + pointerDistance,canvas.height/2,20,2);
-
-					ctx.beginPath();
-					ctx.moveTo(canvas.width / 2 + pointerDistance + 12, canvas.height / 2);
-					ctx.lineTo(canvas.width / 2 + pointerDistance, canvas.height / 2 - 6);
-					ctx.lineTo(canvas.width / 2 + pointerDistance, canvas.height / 2 + 6);
-					ctx.fill();
-
-					ctx.restore();
-					ctx.scale(zoom, zoom);
-					ctx.translate(-lastPos.x, -lastPos.y);
-				}
-			}
-		}
-
-		//#endregion
-
-		//#region DRAW HITBOXES
-		/*
-		{
-		
-		ctx.strokeStyle="red";
-		ctx.lineWidth = 1;
-		ctx.beginPath();
-		ctx.moveTo(localPlayer.hitbox[0].x,localPlayer.hitbox[0].y);
-		for(var i = 0; i < localPlayer.hitbox.length;i++){
-			var p = localPlayer.hitbox[i];
-			ctx.lineTo(p.x,p.y);
-			//console.log(i, p.x,p.y);
-			
-		}
-		ctx.closePath();
-		ctx.stroke();
-		
-		}*/
-		//#endregion
-
-		//#region PROJECTILES LOOP
-		for (var i = 0; i < projectiles.length; i++) {
-
-			var p = projectiles[i];
-
-			p.age += deltaTime;
-
-			//#region MOVE PROJECTILE
-			if (!p.guided) {
-				p.pos.x += p.velocity.x * deltaTime;
-				p.pos.y += p.velocity.y * deltaTime;
-			}
-			else {
-				rotateToTarget(p, p.target);
-				p.speed += 800 * deltaTime;
-				p.pos.x += Math.cos(p.rot) * p.speed * deltaTime;
-				p.pos.y += Math.sin(p.rot) * p.speed * deltaTime;
-				p.trail.update();
-				renderTrail(p.trail);
-			}
-			//#endregion
-
-			//#region KILL IF TOO OLD
-			if (p.age > p.lifetime) {
-				/*ctx.fillStyle="white";
-				ctx.beginPath();
-				ctx.arc(p.pos.x, p.pos.y, 50, 0, 2 * Math.PI);
-				ctx.fill();*/
-				createExplosion(p.pos.x, p.pos.y, .5);
-				removeIDFromArray(projectiles, p.id);
-				continue;
-			}
-			//#endregion
-
-			//#region DRAW PROJECTILE
-
-
-			ctx.save();
-			ctx.fillStyle = CSScolor(p.color);
-			rotateCtx(p.pos.x, p.pos.y, p.rot);
-			if (!p.guided) {
-				ctx.fillRect(p.pos.x - 10, p.pos.y - 1.5, 20, 3);
-				ctx.fillStyle = CSScolorAlpha(p.color, 0.5);
-				ctx.fillRect(p.pos.x - 30, p.pos.y - 1.5, 30, 3);
-				ctx.fillStyle = CSScolorAlpha(p.color, 0.3);
-				ctx.fillRect(p.pos.x - 60, p.pos.y - 1.5, 40, 3);
-				ctx.fillStyle = CSScolorAlpha(p.color, 0.2);
-				ctx.fillRect(p.pos.x - 100, p.pos.y - 1.5, 100, 3);
-			}
-			else {
-				ctx.fillRect(p.pos.x - 10, p.pos.y - 2.5, 20, 5);
-
-			}
-			ctx.restore();
-
-
-			//#endregion
-
-			//#region DETECT COLLISION
-
-			//#region SINGLEPLAYER VARIANT
-
-			if (p.shooter == localPlayer) {
-				for (var ii = 0; ii < players.length; ii++) {
-					var player = players[ii];
-					if (player.ai) {
-						if (player.hp > 0 && player.team != p.shooter.team) {
-							if (p.pos.x < player.hitbox[1].x && p.pos.x > player.hitbox[0].x) {
-								if (p.pos.y < player.hitbox[3].y && p.pos.y > player.hitbox[0].y) {
-									if (player.shieldEnabled && player.shield >= 1) {
-										player.shield -= 1;
-										soundShieldHit.play(.2);
-										/*weaponCooldown=.5;
-										cooldownStart=.5;*/
-									}
-									else {
-										player.hp -= 1;
-										soundHit.play(.15);
-									}
-									if (player.hp <= 0) {
-										player.hp = 0;
-										//PLAYER DEATH
-										createExplosion(p.pos.x, p.pos.y, 20);
-										player.speed = 0;
-										enemyCount--;
-										localPlayer.score++;
-										removeIDFromArray(players, player.id);
-									}
-									createExplosion(p.pos.x, p.pos.y, 1);
-									removeIDFromArray(projectiles, p.id);
-								}
-							}
-						}
-					}
-				}
-			}
-
-			//#endregion
-
-			//MULTIPLAYER VARIANT
-			var player = localPlayer
-			if (player.hp > 0 && player.id != p.shooter.id) {
-				if (p.pos.x < player.hitbox[1].x && p.pos.x > player.hitbox[0].x) {
-					if (p.pos.y < player.hitbox[3].y && p.pos.y > player.hitbox[0].y) {
-						if (player.shieldEnabled && player.shield >= 1) {
-							player.shield -= 1;
-							soundShieldHit.play(.2);
-							sendHit(player.id, p.id, true);
-							/*weaponCooldown=.5;
-							cooldownStart=.5;*/
-						}
-						else {
-							player.hp -= 1;
-							soundHit.play(.2);
-							sendHit(player.id, p.id, false);
-						}
-						if (player == localPlayer) {
-							particles.push(new Particle(player.pos.x, player.pos.y, true, false, 1, .12, 10000, { r: 230, g: 20, b: 0 }, .1));
-						}
-						if (player.hp <= 0) {
-							player.hp = 0;
-							shakeScreen(20, 2);
-							sendDeath(player.id, p.shooter.id);
-							//PLAYER DEATH
-							createExplosion(p.pos.x, p.pos.y, 20);
-							player.speed = 0;
-							/*if(player.team == 2){
-								enemyCount--;
-								score++;
-							}*/
-							removeIDFromArray(players, player.id);
-						}
-						else {
-
-							shakeScreen(5, 0.3);
-						}
-						createExplosion(p.pos.x, p.pos.y, 1);
-						removeIDFromArray(projectiles, p.id);
-					}
-				}
-
-
-			}
-			//#endregion
-		}
-		//#endregion
-
-		//#region EXPLOSIONS LOOP
-		for (var i = 0; i < explosions.length; i++) {
-			var e = explosions[i];
-			e.age += deltaTime;
-
-			//DRAW EXPLOSION
-			var lifetimeRatio = (e.lifetime - e.age) / e.lifetime;
-			ctx.fillStyle = CSScolorAlpha(e.color, lifetimeRatio);
-			ctx.beginPath();
-			ctx.arc(e.pos.x, e.pos.y, (1 - lifetimeRatio) * e.radius, 0, 2 * Math.PI);
-			ctx.fill();
-
-			//KILL IF TOO OLD
-			if (e.age > e.lifetime) {
-				/*ctx.fillStyle="white";
-				ctx.beginPath();
-				ctx.arc(p.pos.x, p.pos.y, 50, 0, 2 * Math.PI);
-				ctx.fill();*/
-				removeIDFromArray(explosions, e.id);
-				continue;
-			}
-			/*
-			ctx.save();
-			//ctx.fillStyle=CSScolor(p.color);
-			ctx.fillStyle="red";
-			rotateCtx(p.pos.x,p.pos.y,p.rot);
-			ctx.fillRect(p.pos.x-10,p.pos.y-2,20,4);
-			ctx.restore();
-			*/
-		}
-		//#endregion
-
-		//#region PARTICLES LOOP
-		for (var i = 0; i < particles.length; i++) {
-			var p = particles[i];
-
-			p.age += deltaTime;
-			//KILL IF TOO OLD
-			if (p.age > p.lifetime) {
-				/*ctx.fillStyle="white";
-				ctx.beginPath();
-				ctx.arc(p.pos.x, p.pos.y, 50, 0, 2 * Math.PI);
-				ctx.fill();*/
-				removeIDFromArray(particles, p.id);
-				continue;
-			}
-
-			var lifetimeRatio = (p.age) / p.lifetime;
-			var tempOpacity = p.opacity;
-			var tempRadius = p.radius;
-			if (p.fadeSize) {
-				tempRadius = p.radius * (1 + (lifetimeRatio * p.sizeFadeDirection));
-				if (tempRadius < 0) {
-					console.log("Invalid particle radius:", p.radius, lifetimeRatio, p.age, p.lifetime);
-				}
-			}
-			if (p.fadeOpacity) {
-				tempOpacity = p.opacity * (1 - Math.abs(2 * (lifetimeRatio - 0.5)));
-			}
-
-			//DRAW PARTICLE
-
-			ctx.fillStyle = CSScolorAlpha(p.color, tempOpacity);
-			ctx.beginPath();
-			ctx.arc(p.pos.x, p.pos.y, tempRadius, 0, 2 * Math.PI);
-			ctx.fill();
-
-			/*
-			ctx.save();
-			//ctx.fillStyle=CSScolor(p.color);
-			ctx.fillStyle="red";
-			rotateCtx(p.pos.x,p.pos.y,p.rot);
-			ctx.fillRect(p.pos.x-10,p.pos.y-2,20,4);
-			ctx.restore();
-			*/
-		}
-		//#endregion
-
-
-		//#region DRAW HUD
-
-		ctx.translate(lastPos.x, lastPos.y);
-
-		ctx.scale(1 / zoom, 1 / zoom);
-		/*
-		ctx.lineWidth = 1;
-		ctx.strokeStyle="gray";
-		ctx.beginPath();
-		ctx.moveTo(80, 50);
-		ctx.lineTo(80 + 300, 50);
-		ctx.stroke();
-		ctx.lineWidth = 4;
-		ctx.strokeStyle=CSScolor(localPlayer.color);
-		ctx.beginPath();
-		ctx.arc(50, 50,30,-Math.PI/2,(weaponCooldown/cooldownStart*2*Math.PI)-Math.PI/2);
-		ctx.stroke();
-		ctx.beginPath();
-		ctx.moveTo(80, 50);
-		ctx.lineTo(80 + localPlayer.hp*30, 50);
-		ctx.stroke();
-		ctx.lineWidth = 1;
-		*/
-
-
-		//#region DEATH SCREEN
-		if (localPlayer.hp <= 0) {
-			if (gameOverScreenTimeout <= 0) {
-				console.log("HP: ", localPlayer.hp);
-				ctx.fillStyle = CSScolor({ r: 0, g: 0, b: 0 });
-				ctx.fillRect(0, 0, canvas.width, canvas.height);
-				ctx.fillStyle = CSScolor({ r: 80, g: 80, b: 80 });
-				ctx.fillText("Game over. No restart button yet. Sorry.", canvas.width / 2, canvas.height / 2);
-				ctx.fillStyle = CSScolor({ r: 80, g: 80, b: 80 });
-				ctx.fillText("Score: " + localPlayer.score, canvas.width / 2, canvas.height / 2 + 40);
-				running = false;
-			}
-			else gameOverScreenTimeout -= deltaTime;
-
-		}
-		//#endregion
-
-		//#endregion
-
-		ctx.translate(-lastPos.x, -lastPos.y);
-
-	}
-	window.requestAnimationFrame(update);
 }
 //#endregion
 
