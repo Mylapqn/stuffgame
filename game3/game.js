@@ -5,7 +5,7 @@ function Player(id) {
 	this.name = "unnamed";
 	this.ai = false;
 	this.id = id;
-	this.pos = { x: 200, y: 200 };
+	this.pos = { x: 0, y: 0 };
 	this.rot = 0;
 	this.speed = 850;
 	this.thrust = 1000;
@@ -139,6 +139,21 @@ function Particle(x, y, fadeOpacity, fadeSize, fadeDirection, duration, radius, 
 	this.color = color;
 }
 
+function Debris(x, y, velocity) {
+	this.x = x;
+	this.y = y;
+	this.velocity = { x, y };
+	this.velocity.x = velocity.x + randomFloat(-500, 500);
+	this.velocity.y = velocity.y + randomFloat(-500, 500);
+	this.rot = randomInt(0, 2 * Math.PI);
+	this.rotationVelocity = randomFloat(-2, 2);
+	this.type = 0;
+	this.age = 0;
+	this.lifetime = 2;
+	debrisIDs++;
+	this.id = debrisIDs;
+}
+
 function Sound(src) {
 	this.sound = document.createElement("audio");
 	this.sound.src = src;
@@ -190,6 +205,7 @@ var constantDeltaTime = false;
 var projectiles = [];
 var explosions = [];
 var particles = [];
+var debris = [];
 
 var nextProjectileID = 0;
 var nextExplosionID = 0;
@@ -246,11 +262,20 @@ loadJSON("ships/trainingShip.json");
 
 var playerImage = [];
 var playerImageCount = 9;
+var damageImage = [];
+var damageImageCount = 9;
+var debrisImage = new Image();
+debrisImage.src = "images/debris/debris0.png";
 
 for (var i = 0; i < playerImageCount; i++) {
 	var img = new Image();
 	img.src = 'images/player' + i + '.png';
 	playerImage.push(img);
+}
+for (var i = 0; i < damageImageCount; i++) {
+	var img = new Image();
+	img.src = 'images/damage' + i + '.png';
+	damageImage.push(img);
 }
 console.log(playerImage);
 
@@ -395,8 +420,8 @@ for (var i = 0; i < stars.length; i++) {
 		z: randomFloat(0.25, 6),
 		alpha: randomFloat(0.5, 0.9),
 	};
-	stars[i].oldX = stars[i].x;
-	stars[i].oldX = stars[i].y;
+	//stars[i].oldX = stars[i].x;
+	//stars[i].oldX = stars[i].y;
 
 
 }
@@ -413,6 +438,9 @@ var cameraMoved = false;
 
 var screenShake = 0;
 var screenShakeDecay = 0;
+
+var debrisIDs = 0;
+
 
 
 
@@ -936,7 +964,7 @@ function onConnectionMessage(messageRaw) {
 					if (leaderboardOpen)
 						refreshLeaderboard();
 					addChatMessage(player.name + " was killed by " + findPlayerWithID(messageData.killer).name, null, localPlayer.color);
-					removeIDFromArray(players, player.id);
+
 
 				}
 				if (messageContent.type == "hit") {
@@ -1274,7 +1302,9 @@ function addChatMessage(text, player, color) {
 	}
 	newMsg.appendChild(document.createTextNode(text));
 	chatMessageArea.appendChild(newMsg);
-	newMsg.setAttribute("animation-finished", "0");
+	if (chatInput == document.activeElement) {
+		newMsg.style.animation = "none";
+	}
 	newMsg.addEventListener('animationend', function (e) {
 		newMsg.style.display = "none";
 	}, {
@@ -1528,12 +1558,15 @@ function update(timestamp) {
 		updateParticles();
 		//#endregion
 
+		updateDebris();
 
 		//#region DRAW HUD
 
 		ctx.translate(lastPos.x, lastPos.y);
 
 		ctx.scale(1 / zoom, 1 / zoom);
+
+
 		/*
 		ctx.lineWidth = 1;
 		ctx.strokeStyle="gray";
@@ -1614,10 +1647,11 @@ function updateStars() {
 	for (var i = 0; i < stars.length && starsOnScreen < stars.length * sliderStars.value * starsRatio; i++) {
 		var star = stars[i];
 
-
 		if (cameraMoved) {
-			star.oldX = star.x + cameraDelta.x;
-			star.oldY = star.y + cameraDelta.y;
+			var oldStar = {
+				x: star.x + cameraDelta.x,
+				y: star.y + cameraDelta.y
+			};
 
 			star.x -= cameraDelta.x * (star.z * starSpeed - 1);
 			star.y -= cameraDelta.y * (star.z * starSpeed - 1);
@@ -1629,7 +1663,7 @@ function updateStars() {
 
 
 				ctx.beginPath();
-				ctx.moveTo(star.oldX, star.oldY);
+				ctx.moveTo(oldStar.x, oldStar.y);
 				ctx.lineTo(star.x, star.y);
 
 				ctx.lineWidth = (star.z * starSize + minStarSize) / zoom;
@@ -1720,6 +1754,11 @@ function updateDrawPlayers() {
 				var pImg = playerImage[p.shipID];
 				if (p.shipID >= playerImageCount)
 					var pImg = playerImage[playerImageCount - 1];
+				if (p.hp <= p.maxHp / 2) {
+					//TEMP
+					if (p.shipID == 0)
+						pImg = damageImage[p.shipID];
+				}
 				ctx.drawImage(pImg, p.pos.x - p.size / 2, p.pos.y - p.size / 2, p.size, p.size);
 				ctx.restore();
 
@@ -1912,6 +1951,8 @@ function updateProjectiles() {
 
 						shakeScreen(5, 0.3);
 					}
+					debris.push(new Debris(p.pos.x, p.pos.y, { x: (p.velocity.x + player.velocity.x) / 2, y: (p.velocity.y + player.velocity.y) / 2 }));
+					console.log(debris.length);
 					createExplosion(p.pos.x, p.pos.y, 1);
 					removeIDFromArray(projectiles, p.id);
 				}
@@ -2020,6 +2061,48 @@ function updateParticles() {
 	}
 }
 
+function updateDebris() {
+	for (var i = 0; i < debris.length; i++) {
+		var p = debris[i];
+		p.x += p.velocity.x * deltaTime;
+		p.y += p.velocity.y * deltaTime;
+		p.rot += p.rotationVelocity * deltaTime;
+		p.velocity.x *= 1 - (1 * deltaTime);
+		p.velocity.y *= 1 - (1 * deltaTime);
+
+		p.age += deltaTime;
+		//KILL IF TOO OLD
+		if (p.age > p.lifetime) {
+			/*ctx.fillStyle="white";
+			ctx.beginPath();
+			ctx.arc(p.pos.x, p.pos.y, 50, 0, 2 * Math.PI);
+			ctx.fill();*/
+			removeIDFromArray(debris, p.id);
+			continue;
+		}
+
+		var lifetimeRatio = (p.age) / p.lifetime;
+
+			tempOpacity = 1 * (1 - Math.abs(2 * (lifetimeRatio - 0.5)));
+
+		//DRAW PARTICLE
+		ctx.save();
+		ctx.globalAlpha = 1-lifetimeRatio;
+		rotateCtx(p.x, p.y, p.rot);
+		ctx.drawImage(debrisImage, p.x-50, p.y-50, 100,100);
+		ctx.restore();
+
+		/*
+		ctx.save();
+		//ctx.fillStyle=CSScolor(p.color);
+		ctx.fillStyle="red";
+		rotateCtx(p.pos.x,p.pos.y,p.rot);
+		ctx.fillRect(p.pos.x-10,p.pos.y-2,20,4);
+		ctx.restore();
+		*/
+	}
+}
+
 function updateShooting() {
 
 	//if(weaponCooldown == 0){
@@ -2104,8 +2187,9 @@ function updateCalcHitboxes() {
 
 
 
-
-		p.hitbox = [{ x: p.pos.x - hitboxSize * p.size / 2, y: p.pos.y - hitboxSize * p.size / 2 }, { x: p.pos.x + hitboxSize * p.size / 2, y: p.pos.y - hitboxSize * p.size / 2 }, { x: p.pos.x + hitboxSize * p.size / 2, y: p.pos.y + hitboxSize * p.size / 2 }, { x: p.pos.x - hitboxSize * p.size / 2, y: p.pos.y + hitboxSize * p.size / 2 }]
+		if (p.hp > 0) {
+			p.hitbox = [{ x: p.pos.x - hitboxSize * p.size / 2, y: p.pos.y - hitboxSize * p.size / 2 }, { x: p.pos.x + hitboxSize * p.size / 2, y: p.pos.y - hitboxSize * p.size / 2 }, { x: p.pos.x + hitboxSize * p.size / 2, y: p.pos.y + hitboxSize * p.size / 2 }, { x: p.pos.x - hitboxSize * p.size / 2, y: p.pos.y + hitboxSize * p.size / 2 }]
+		}
 	}
 }
 
@@ -2136,10 +2220,10 @@ function updateWorldspaceBg() {
 	ctx.strokeStyle = CSScolorAlpha({ r: 255, g: 255, b: 255 }, .1);
 	ctx.fillStyle = ctx.strokeStyle;
 	ctx.beginPath();
-	ctx.arc(200, 200, 100, 0, Math.PI * 2);
-	ctx.arc(200, 200, 110, 0, Math.PI * 2);
+	ctx.arc(0, 0, 100, 0, Math.PI * 2);
+	ctx.arc(0, 0, 110, 0, Math.PI * 2);
 	ctx.stroke();
-	ctx.fillText("SPAWN", 200, 210);
+	ctx.fillText("SPAWN", 0, 10);
 	//#endregion
 
 	//#region BG IMG
@@ -2460,6 +2544,7 @@ function updateLocalMovement() {
 	localPlayer.pos.x += localPlayer.velocity.x * deltaTime;
 	localPlayer.pos.y += localPlayer.velocity.y * deltaTime;
 }
+
 //#endregion
 
 //#region GAME UTLITY FUNCTIONS
