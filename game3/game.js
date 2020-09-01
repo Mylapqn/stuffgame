@@ -968,6 +968,9 @@ function onConnectionMessage(messageRaw) {
 
 				}
 				if (messageContent.type == "hit") {
+					proj = findArrayElementWithID(projectiles,messageData.projectileID)
+					debris.push(new Debris(proj.pos.x, proj.pos.y, { x: (proj.velocity.x + player.velocity.x) / 2, y: (proj.velocity.y + player.velocity.y) / 2 }));
+
 					removeIDFromArray(projectiles, messageData.projectileID);
 					if (messageData.shield) {
 						soundShieldHit.play(.15);
