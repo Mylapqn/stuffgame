@@ -749,7 +749,8 @@ chatInput.addEventListener("blur", function (e) {
 //#region NETWORK FUNCTIONS
 
 function connect() {
-	connection = new WebSocket('wss://all-we-ever-want-is-indecision.herokuapp.com');
+	//connection = new WebSocket('wss://all-we-ever-want-is-indecision.herokuapp.com');
+	connection = new WebSocket('wss://stuffgame.ws.coal.games/');
 	connection.onopen = onConnectionOpen;
 	connection.onmessage = onConnectionMessage;
 	connection.onclose = function (e) {
