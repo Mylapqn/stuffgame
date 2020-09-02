@@ -149,9 +149,28 @@ function Debris(x, y, velocity) {
 	this.rotationVelocity = randomFloat(-2, 2);
 	this.type = 0;
 	this.age = 0;
-	this.lifetime = 2;
+	this.lifetime = 10;
 	debrisIDs++;
 	this.id = debrisIDs;
+}
+
+function Spark(x, y, velocity, color, long) {
+	this.x = x;
+	this.y = y;
+	this.oldX = x;
+	this.oldY = y;
+	this.velocity = { x, y };
+	this.velocity.x = velocity.x + randomFloat(-1000, 1000);
+	this.velocity.y = velocity.y + randomFloat(-1000, 1000);
+	this.originalVelocity = { x, y };
+	this.originalVelocity.x = this.velocity.x;
+	this.originalVelocity.y = this.velocity.y;
+	this.age = 0;
+	if (long) this.lifetime = randomFloat(3, 10);
+	else this.lifetime = randomFloat(.2, .6);
+	sparkIDs++;
+	this.id = sparkIDs;
+	this.color = color;
 }
 
 function Sound(src) {
@@ -206,6 +225,7 @@ var projectiles = [];
 var explosions = [];
 var particles = [];
 var debris = [];
+var sparks = [];
 
 var nextProjectileID = 0;
 var nextExplosionID = 0;
@@ -395,6 +415,11 @@ var colors = {
 		r: 0,
 		g: 0,
 		b: 0
+	},
+	orange: {
+		r: 200,
+		g: 80,
+		b: 20
 	}
 
 }
@@ -440,6 +465,7 @@ var screenShake = 0;
 var screenShakeDecay = 0;
 
 var debrisIDs = 0;
+var sparkIDs = 0;
 
 
 
@@ -956,6 +982,8 @@ function onConnectionMessage(messageRaw) {
 					player.hp = 0;
 					//PLAYER DEATH
 					createExplosion(player.pos.x, player.pos.y, 20);
+					createSparks(player, null, 50, colors.orange);
+					createDebris(player, null, 4);
 					player.speed = 0;
 					console.log("team of dead: " + player.team + " team of local: " + localPlayer.team);
 					if (messageData.killer == localPlayer.id) {
@@ -969,16 +997,21 @@ function onConnectionMessage(messageRaw) {
 
 				}
 				if (messageContent.type == "hit") {
-					proj = findArrayElementWithID(projectiles,messageData.projectileID)
-					debris.push(new Debris(proj.pos.x, proj.pos.y, { x: (proj.velocity.x + player.velocity.x) / 2, y: (proj.velocity.y + player.velocity.y) / 2 }));
+					proj = findArrayElementWithID(projectiles, messageData.projectileID);
+					
+					
+
 
 					removeIDFromArray(projectiles, messageData.projectileID);
 					if (messageData.shield) {
 						soundShieldHit.play(.15);
+						//createSparks(player, proj, 30, shieldColor);
 					}
 					else {
 						player.hp -= 1;
 						soundHit.play(.15);
+						//createSparks(player, proj, 30, colors.orange);
+						createDebris(player, proj, 1);
 					}
 					createExplosion(player.pos.x, player.pos.y, 1);
 					console.log("team of hit: " + player.team + " team of local: " + localPlayer.team);
@@ -1165,6 +1198,46 @@ function createExplosion(x, y, size) {
 		createExplosion(x + randomInt(-100, 100), y + randomInt(-100, 100), randomFloat(0.5, 2.5));
 		//setTimeout(function(){createExplosion(x + randomInt(-100,100),y + randomInt(-100,100),randomFloat(0.5,2.5));},randomInt(0,100));
 		size -= 1;
+	}
+}
+
+function createDebris(player, proj, number) {
+	var collisionVelocity;
+	if (proj != null) {
+		collisionVelocity = {
+			x: (proj.velocity.x + player.velocity.x) / 2,
+			y: (proj.velocity.y + player.velocity.y) / 2
+		}
+	}
+	else {
+		collisionVelocity = {
+			x: player.velocity.x,
+			y: player.velocity.y
+		}
+	}
+	for (let i = 0; i < number; i++) {
+		debris.push(new Debris(player.pos.x, player.pos.y, { x: collisionVelocity.x, y: collisionVelocity.y }));
+	}
+}
+
+function createSparks(player, proj, number, color) {
+	var collisionVelocity, long;
+	if (proj != null) {
+		collisionVelocity = {
+			x: (proj.velocity.x * 2 + player.velocity.x) / 4,
+			y: (proj.velocity.y * 2 + player.velocity.y) / 4
+		}
+		long = false;
+	}
+	else {
+		collisionVelocity = {
+			x: player.velocity.x,
+			y: player.velocity.y
+		}
+		long = true;
+	}
+	for (let i = 0; i < number; i++) {
+		sparks.push(new Spark(player.pos.x, player.pos.y, { x: collisionVelocity.x, y: collisionVelocity.y }, color, long));
 	}
 }
 
@@ -1563,6 +1636,7 @@ function update(timestamp) {
 		//#endregion
 
 		updateDebris();
+		updateSparks();
 
 		//#region DRAW HUD
 
@@ -1927,6 +2001,7 @@ function updateProjectiles() {
 						player.shield -= 1;
 						soundShieldHit.play(.2);
 						sendHit(player.id, p.id, true);
+						createSparks(player, p, 20, shieldColor);
 						/*weaponCooldown=.5;
 						cooldownStart=.5;*/
 					}
@@ -1934,6 +2009,8 @@ function updateProjectiles() {
 						player.hp -= 1;
 						soundHit.play(.2);
 						sendHit(player.id, p.id, false);
+						createDebris(player, p, 1);
+						createSparks(player, p, 20, colors.orange);
 					}
 					if (player == localPlayer) {
 						particles.push(new Particle(player.pos.x, player.pos.y, true, false, 1, .12, 10000, { r: 230, g: 20, b: 0 }, .1));
@@ -1944,6 +2021,8 @@ function updateProjectiles() {
 						sendDeath(player.id, p.shooter.id);
 						//PLAYER DEATH
 						createExplosion(p.pos.x, p.pos.y, 20);
+						createDebris(player, p, 4);
+						createSparks(player, null, 50, colors.orange);
 						player.speed = 0;
 						/*if(player.team == 2){
 							enemyCount--;
@@ -1955,7 +2034,8 @@ function updateProjectiles() {
 
 						shakeScreen(5, 0.3);
 					}
-					debris.push(new Debris(p.pos.x, p.pos.y, { x: (p.velocity.x + player.velocity.x) / 2, y: (p.velocity.y + player.velocity.y) / 2 }));
+
+
 					console.log(debris.length);
 					createExplosion(p.pos.x, p.pos.y, 1);
 					removeIDFromArray(projectiles, p.id);
@@ -2087,13 +2167,66 @@ function updateDebris() {
 
 		var lifetimeRatio = (p.age) / p.lifetime;
 
-			tempOpacity = 1 * (1 - Math.abs(2 * (lifetimeRatio - 0.5)));
+		tempOpacity = 1 * (1 - Math.abs(2 * (lifetimeRatio - 0.5)));
 
 		//DRAW PARTICLE
 		ctx.save();
-		ctx.globalAlpha = 1-lifetimeRatio;
+		ctx.globalAlpha = 1 - lifetimeRatio;
 		rotateCtx(p.x, p.y, p.rot);
-		ctx.drawImage(debrisImage, p.x-50, p.y-50, 100,100);
+		ctx.drawImage(debrisImage, p.x - 50, p.y - 50, 100, 100);
+		ctx.restore();
+
+		/*
+		ctx.save();
+		//ctx.fillStyle=CSScolor(p.color);
+		ctx.fillStyle="red";
+		rotateCtx(p.pos.x,p.pos.y,p.rot);
+		ctx.fillRect(p.pos.x-10,p.pos.y-2,20,4);
+		ctx.restore();
+		*/
+	}
+}
+
+function updateSparks() {
+	for (var i = 0; i < sparks.length; i++) {
+		var p = sparks[i];
+
+		var lifetimeRatio = (p.age) / p.lifetime;
+		p.age += deltaTime;
+
+		p.oldX = p.x;
+		p.oldY = p.y;
+		p.x += p.velocity.x * deltaTime;
+		p.y += p.velocity.y * deltaTime;
+		p.velocity.x = p.originalVelocity.x * (1-lifetimeRatio);
+		p.velocity.y = p.originalVelocity.y * (1-lifetimeRatio);
+
+		
+		//KILL IF TOO OLD
+		if (p.age > p.lifetime) {
+			/*ctx.fillStyle="white";
+			ctx.beginPath();
+			ctx.arc(p.pos.x, p.pos.y, 50, 0, 2 * Math.PI);
+			ctx.fill();*/
+			removeIDFromArray(sparks, p.id);
+			continue;
+		}
+
+		
+
+		tempOpacity = 1 * (1 - Math.abs(2 * (lifetimeRatio - 0.5)));
+
+		//DRAW PARTICLE
+		ctx.save();
+		ctx.globalAlpha = 1 - lifetimeRatio;
+		ctx.strokeStyle = CSScolor(p.color);
+		ctx.lineWidth = 5*(1-lifetimeRatio);
+		ctx.lineCap = "round";
+		ctx.beginPath();
+		ctx.moveTo(p.oldX, p.oldY);
+		ctx.lineTo(p.x, p.y);
+		ctx.stroke();
+		//ctx.fillRect(p.x, p.y, 10, 10);
 		ctx.restore();
 
 		/*
