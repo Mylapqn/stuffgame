@@ -486,15 +486,7 @@ window.onbeforeunload = onGameExit;
 var playerName = getQueryVariable("name");
 var playerColor = JSON.parse(getQueryVariable("color"));
 
-//setInterval(update, 1000 / fps);
 update();
-
-//gameStart();
-
-/*for(var i = 0; i < 3000; i++){
-	particles.push(new Particle(randomInt(-canvas.width*3,canvas.width*3),randomInt(-canvas.height*3,canvas.height*3),true,false,1,10,1,{r:255,g:255,b:255},randomFloat(0.2,1)));
-}*/
-
 connect();
 
 
@@ -569,8 +561,8 @@ function wheel(event) {
 }
 
 
-inputVelocity = 0;
-inputRotation = 0;
+var inputVelocity = 0;
+var inputRotation = 0;
 
 
 function keyDown(event) {
@@ -774,404 +766,84 @@ chatInput.addEventListener("blur", function (e) {
 
 //#endregion
 
+var lastTargetRot = 0;
+
 //#region NETWORK FUNCTIONS
 
 function connect() {
-	networker.postMessage({type:"connect"});
-	//connection = new WebSocket('wss://all-we-ever-want-is-indecision.herokuapp.com');
-	
+	networker.postMessage({ type: "connect" });
 }
 networker.addEventListener("message", message => {
-	
 	if (message.data.type == "connectionClose") onConnectionClose();
 	if (message.data.type == "connectionOpen") onConnectionOpen();
 	if (message.data.type == "connectionMessage") {
-		console.log("K/OI!" , message.data);
 		onConnectionMessage(message.data.m);
-	} 
+	}
+	if (message.data.type == "gameStart") gameStart(message.data.data);
+	if (message.data.type == "playerUpdate") {
+		//console.log(message.data.data.id,message.data.data.position);
+		if (localPlayer != undefined) {
+			if (message.data.data.id == localPlayer.id) {
+				localPlayer.pos = message.data.data.position;
+				localPlayer.velocity.x = message.data.data.vel.x;
+				localPlayer.velocity.y = message.data.data.vel.y;
+				localPlayer.rot = message.data.data.rot;
+				mouseWorldPos = screenToWorldCoords(mousePos);
+				lastTargetRot = objectRot(localPlayer, { pos: mouseWorldPos });
+			}
+			else {
+				let p = findPlayerWithID(message.data.data.id);
+				if (p!= null) {
+					p.pos = vector2copy(message.data.data.position);
+					p.velocity = vector2copy(message.data.data.vel);
+					p.rot = message.data.data.rot;
+				}
+			}
+		}
+	}
+	if (message.data.type == "newPlayer") {
+		addPlayer(message.data.data);
+	}
 });
 function onConnectionClose() {
-    //console.log("Connection closed, last ping sent " + lastPingSent + " s ago.");
-    connected = false;
-    running = false;
-    loadingScreen.style.display = "flex";
-    loadingScreen.style.animation = "startGame 1s cubic-bezier(0.9, 0, 0.7, 1) 0s 1 reverse both";
-    loadingScreen.style.animationPlayState = "running";
-    /*setTimeout(function () {
-        loadingScreen.style.animationPlayState = "paused";
-        removeAllPlayers();
-    }, 1000);*/
+	connected = false;
+	running = false;
+	loadingScreen.style.display = "flex";
+	loadingScreen.style.animation = "startGame 1s cubic-bezier(0.9, 0, 0.7, 1) 0s 1 reverse both";
+	loadingScreen.style.animationPlayState = "running";
 }
 function onConnectionOpen() {
-	pingTimeout = 0;
-	console.log("Connection opened");
+	console.log("Client connected");
 	connected = true;
-	
 }
 
 function onConnectionMessage(messageRawData) {
-	console.log("message:" + messageRawData);
-	
-	//#region OLD JSON
-	/*var message = JSON.parse(messageRawData);
-	if (message.type == "technical") {
-		if (message.subtype == "init") {
-			if (!running) {
-				console.log("Init message received");
-				//addPlayer(message.data);
-				localPlayer = addPlayer(false);
-				localPlayer.initialised = true;
-				console.log(localPlayer.color);
-
-				var cookie = document.cookie;
-				if (cookie != "") {
-					console.log("Found Cookie: " + cookie);
-					//alert(cookie);
-				}
-
-				if (playerColor)
-					localPlayer.color = playerColor;
-
-				if (playerName) {
-					localPlayer.name = playerName;
-					//connection.send(JSON.stringify({ type: "technical", subtype: "initData", name: playerName, color: localPlayer.color }));
-				}
-				else if (cookie != "") {
-					var n = getCookie("playerName");
-					if (n != "") {
-						playerName = n;
-						localPlayer.name = playerName;
-						//connection.send(JSON.stringify({ type: "technical", subtype: "initData", name: playerName, color: localPlayer.color }));
-					}
-
-				}
-				else {
-					//connection.send(JSON.stringify({ type: "technical", subtype: "initData", name: localPlayer.name, color: localPlayer.color }));
-				}
-
-				if (cookie != "") {
-					var cookieScore = getCookie("playerScore");
-					var cookieLevel = getCookie("playerLevel");
-					if (cookieScore != "") {
-						localPlayer.score = parseInt(cookieScore);
-					}
-					if (cookieLevel != "") {
-						localPlayer.level = parseInt(cookieLevel);
-					}
-				}
-
-
-				document.documentElement.style.setProperty('--playerColor', CSScolor(localPlayer.color));
-
-				if (colorLuminance(localPlayer.color) > 128) {
-					document.documentElement.style.setProperty('--textColor', "black");
-					document.documentElement.style.setProperty('--invertedTextColor', "white");
-				}
-				else {
-					document.documentElement.style.setProperty('--textColor', "white");
-					document.documentElement.style.setProperty('--invertedTextColor', "black");
-				}
-
-				console.log("Added Local Player with ID " + localPlayer.id);
-
-
-
-			}
-		}
-		if (message.subtype == "start") {
-			//sendPlayerData();
-			gameStart();
-		}
-		if (message.subtype == "playerIDs") {
-			var ids = message.data.split(',');
-			console.log("PlayerIDs message. Content: " + message.data);
-			if (ids.length > 1) {
-				for (i = 0; i < ids.length; i++) {
-					if (ids[i] != localPlayer.id) {
-						console.log("Adding previously present player with UserID: " + ids[i]);
-						var newP = addPlayer(false);
-						newP.id = ids[i];
-					}
-				}
-			}
-		}
-		if (message.subtype == "newUser") {
-
-			if (message.data != localPlayer.id) {
-				console.log("New player: " + message.data + ", UserID: " + message.data);
-				var newPlayer = addPlayer(false);
-
-				newPlayer.id = message.data;
-				newPlayer.team = message.data;
-				newPlayer.name = message.name;
-				newPlayer.color = message.color;
-				console.log("Assigned ID: " + newPlayer.id);
-				addChatMessage("Player " + message.name + " joined the game.", null, newPlayer.color);
-
-				sendPlayerData();
-				if (leaderboardOpen)
-					refreshLeaderboard();
-			}
-		}
-		if (message.subtype == "leaveUser") {
-			if (message.data != localPlayer.id) {
-				var leftPlayer = findPlayerWithID(message.data);
-				addChatMessage("Player " + leftPlayer.name + " left the game.", null, leftPlayer.color);
-				console.log("Leave player: " + message.data + ", UserID: " + localPlayer.id);
-				//removePlayer(message.data);
-				removeIDFromArray(players, message.data);
-				if (leaderboardOpen)
-					refreshLeaderboard();
-			}
-		}
-		if (message.subtype == "userID") {
-			console.log("New local ID: " + message.data);
-			localPlayer.id = message.data;
-			localPlayer.team = message.data;
-		}
-		if (message.subtype == "userCount") {
-			console.log("New user Count: " + message.data);
-			playerCount = message.data;
-			if (message.data > 2)
-				chatInput.placeholder = "Chat with " + (playerCount - 1) + " other players";
-			else if (message.data > 1)
-				chatInput.placeholder = "Chat with " + (playerCount - 1) + " other player";
-			else if (message.data == 1)
-				chatInput.placeholder = "Chat with yourself. You're alone here.";
-		}
-	}
-	if (message.type == "message") {
-		var messageContent = JSON.parse(message.data);
-		var messageData = JSON.parse(messageContent.data);
-		if (message.userID != localPlayer.id) {
-			player = findPlayerWithID(message.userID);
-
-			if (player != null) {
-				if (messageContent.type == "coordinates") {
-					var oldPos = { x: player.pos.x, y: player.pos.y };
-					player.pos = JSON.parse(messageData.pos);
-					player.rot = messageData.rot;
-					player.velocity = { x: player.pos.x - oldPos.x, y: player.pos.y - oldPos.y };
-					player.velocity.x *= 60;
-					player.velocity.y *= 60;
-					player.initialised = true;
-
-
-				}
-				if (messageContent.type == "velocity") {
-					player.velocity = JSON.parse(messageData.velocity);
-					player.rot = messageData.rot;
-
-				}
-
-				if (messageContent.type == "color") {
-					var receivedColor = JSON.parse(messageData.color);
-					player.color = receivedColor;
-				}
-				if (messageContent.type == "death") {
-					player.hp = 0;
-					//PLAYER DEATH
-					createExplosion(player.pos.x, player.pos.y, 20);
-					createSparks(player, null, 50, colors.orange);
-					createDebris(player, null, 4);
-					player.speed = 0;
-					console.log("team of dead: " + player.team + " team of local: " + localPlayer.team);
-					if (messageData.killer == localPlayer.id) {
-						localPlayer.score += player.level + 1;
-						sendScore();
-					}
-					if (leaderboardOpen)
-						refreshLeaderboard();
-					addChatMessage(player.name + " was killed by " + findPlayerWithID(messageData.killer).name, null, findPlayerWithID(messageData.killer).color);
-
-
-				}
-				if (messageContent.type == "hit") {
-					proj = findArrayElementWithID(projectiles, messageData.projectileID);
-					
-					
-
-
-					removeIDFromArray(projectiles, messageData.projectileID);
-					if (messageData.shield) {
-						soundShieldHit.play(.15);
-						//createSparks(player, proj, 30, shieldColor);
-					}
-					else {
-						player.hp -= 1;
-						soundHit.play(.15);
-						//createSparks(player, proj, 30, colors.orange);
-						createDebris(player, proj, 1);
-					}
-					createExplosion(player.pos.x, player.pos.y, 1);
-					console.log("team of hit: " + player.team + " team of local: " + localPlayer.team);
-
-				}
-				if (messageContent.type == "hp") {
-					player.hp = messageData.hp;
-					player.maxHp = messageData.maxHp;
-					player.shield = messageData.shield;
-					player.maxShield = messageData.maxShield;
-					player.shieldEnabled = messageData.shieldEnabled;
-					//player.level = messageData.level;
-
-
-				}
-				if (messageContent.type == "level") {
-					player.level = messageData.level;
-					player.size = messageData.size;
-					player.shipID = messageData.shipID;
-
-
-				}
-				if (messageContent.type == "name") {
-
-					player.name = messageData.name;
-
-
-				}
-				if (messageContent.type == "score") {
-
-					player.score = messageData.score;
-
-
-				}
-
-
-
-			}
-
-		}
-		if (messageContent.type == "chat") {
-			player = findPlayerWithID(message.userID);
-			if (player != null)
-				addChatMessage(messageData.text, player);
-
-
-		}
-		if (messageContent.type == "shoot") {
-			var shootPos = JSON.parse(messageData.pos);
-			var shooterID = messageData.shooter;
-			var shootVelocity = JSON.parse(messageData.velocity);
-			var shootRot = messageData.rot;
-			var damage = messageData.dmg;
-			console.log("receiving shoot from ID " + shooterID);
-			spawnProjectile(shootPos, shootRot, shootVelocity, shooterID, damage);
-		}
-	}*/
-	//#endregion
-
-
+	//console.log("message:" ,messageRawData, Date.now());
 }
 
 
 
 //#region SEND FUNCTIONS
 
-function sendPos() {
-	connection.send(JSON.stringify({ type: "coordinates", data: JSON.stringify({ pos: JSON.stringify(localPlayer.pos), rot: localPlayer.rot }) }));
-	//console.log(new TextEncoder().encode(JSON.stringify({ type: "coordinates", data: JSON.stringify({ pos: JSON.stringify(localPlayer.pos), rot: localPlayer.rot }) })).length);
-	var arrayBuffer = new ArrayBuffer(26);
-	var a = new Float64Array(arrayBuffer,0,3);
-	a[0] = localPlayer.pos.x;
-	a[1] = localPlayer.pos.y;
-	a[2] = localPlayer.rot;
-	var b = new Uint8Array(arrayBuffer, 24, 2);
-	b[0] = shooting;
-	b[1] = 1;
-	//console.log(a, arrayBuffer.byteLength,new Uint8Array(arrayBuffer));
 
-	//connection.send();
-	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
-}
 
-function sendSpeed() {
-	connection.send(JSON.stringify({ type: "velocity", data: JSON.stringify({ velocity: JSON.stringify(localPlayer.velocity), rot: localPlayer.rot }) }));
-}
-
-function sendColor() {
-	connection.send(JSON.stringify({ type: "color", data: JSON.stringify({ color: JSON.stringify(localPlayer.color) }) }));
-}
-
-function sendPlayerData() {
-	sendPos();
-	sendSpeed();
-	sendColor();
-	sendHP();
-	sendName();
-	sendLevel();
-	sendScore();
-}
-
-function sendProjectile(pos, rot, velocity, shooter, dmg) {
-	//connection.send(JSON.stringify({ type: "shoot", data: JSON.stringify({ pos: JSON.stringify(pos), rot: rot, velocity: JSON.stringify(velocity), shooter: shooter, dmg: dmg }) }));
-	//console.log("sending shoot from ID " + shooter);
-}
-
-function sendDeath(id, killer) {
-	connection.send(JSON.stringify({ type: "death", data: JSON.stringify({ id: id, killer: killer }) }));
-	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
-}
-function sendScore() {
-	connection.send(JSON.stringify({ type: "score", data: JSON.stringify({ score: localPlayer.score }) }));
-	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
-}
-function sendHit(id, pid, shield) {
-	connection.send(JSON.stringify({ type: "hit", data: JSON.stringify({ id: id, projectileID: pid, shield: shield }) }));
-	//console.log(players[0].pos + "s" + JSON.stringify(players[0].pos));
-}
-function sendHP() {
-	connection.send(JSON.stringify({ type: "hp", data: JSON.stringify({ hp: localPlayer.hp, maxHp: localPlayer.maxHp, shield: localPlayer.shield, maxShield: localPlayer.maxShield, shieldEnabled: shieldEnabled }) }));
-}
-function sendLevel() {
-	connection.send(JSON.stringify({ type: "level", data: JSON.stringify({ level: localPlayer.level, size: localPlayer.size, shipID: localPlayer.shipID }) }));
-}
-function sendName() {
-	connection.send(JSON.stringify({ type: "name", data: JSON.stringify({ name: localPlayer.name }) }));
-}
-/*function sendPing(){
-	pingTimeout+=trueDeltaTime;
-	lastPingSent+=trueDeltaTime;
-	//console.log("pingTimeout: " + pingTimeout);
-
-	if(connected && lastPingSent >= pingSendInterval) {
-		connection.send(JSON.stringify({type:"technical",subtype:"ping",requestReply:true}));
-		console.log("Sending ping after " + pingTimeout + " s");
-		lastPingSent = 0;
-
-		if(pingTimeout > maxPingTimeout){
-			console.log("Disconnecting after " + pingTimeout + " s of no response");
-			connection.close();
-		}
-	}
-
-	if(!connected && pingTimeout % 1 <= 0.1){
-		console.log("attempting new connection");
-		connect();
-	}
-}*/
-function sendChat() {
-	var msg = chatInput.value;
-	if (msg.trim() != "") {
-		chatInput.value = null;
-		connection.send(JSON.stringify({ type: "chat", data: JSON.stringify({ text: msg }) }));
-	}
-
-}
 //#endregion
 
 //#endregion
 
 //#region GAME FUNCTIONS
 
-function addPlayer(ai) {
-	var p = new Player(players.length);
+function addPlayer(data) {
+	var p = new Player(data.id);
+	p.ai = data.ai;
+	p.name = data.name;
+	p.initialised = true;
+
 	//p.id = players.length;
-	p.ai = ai;
 	p.color = { r: randomInt(50, 255), g: randomInt(50, 255), b: randomInt(50, 255) };
+	p.color = colorCopy(data.color);
 
-
-	if (ai) {
+	/*if (ai) {
 		p.color = { r: 250, g: 0, b: 0 };
 		p.speed = 400;
 		p.rotationSpeed = 3;
@@ -1179,7 +851,7 @@ function addPlayer(ai) {
 		p.maxHp = 4;
 		p.name = "AI"
 		console.log("Added AI player with ID" + p.id);
-	}
+	}*/
 	players.push(p);
 
 	return p;
@@ -1473,17 +1145,20 @@ function shakeScreen(strength, duration) {
 
 //#endregion
 
-var bufferTotal = 0;
+var mouseWorldPos = { x: 0, y: 0 };
+
 
 //#region UPDATE
 function update(timestamp) {
+
+
 	//console.log("frame");
 	if (running) {
-
 		
+		networker.postMessage({ type: "posData", input: { x: inputVelocity, y: inputRotation }, targetRot:lastTargetRot});
+
 		//#region INIT
 
-		//TODO: DELTATIME
 		if (frameIndex == 0) lastFrame = Date.now();
 		trueDeltaTime = (Date.now() - lastFrame) / 1000;
 
@@ -1492,7 +1167,6 @@ function update(timestamp) {
 		deltaTime = trueDeltaTime * timeMultiplier;
 
 		lastFrame = Date.now();
-		//TODO: DELTATIME
 		frameIndex++;
 		fpsFramesUntilAverage++;
 		fpsCurrentTime += trueDeltaTime;
@@ -1504,15 +1178,15 @@ function update(timestamp) {
 		}
 
 		if (connected) {
-			networker.postMessage({ type: "posData", input: {x:inputVelocity,y:inputRotation},targetRot:localPlayer.rot,shooting:shooting});
-			//sendPing();
-			//sendHP();
+			//networker.postMessage({ type: "posData", input: {x:inputVelocity,y:inputRotation},targetRot:localPlayer.rot,shooting:shooting});
+
+
 			if (localPlayer.hp > 0) {
-				//sendPos();
+
 			}
 		}
 
-		mouseWorldPos = screenToWorldCoords(mousePos);
+		
 
 		ctx.translate(lastPos.x, lastPos.y);
 
@@ -1522,7 +1196,8 @@ function update(timestamp) {
 
 		//#region LOCAL PLAYER MOVEMENT
 
-		updateLocalMovement();
+		//updateLocalMovement();
+		//localPlayer.pos = vector2add(localPlayer.pos, vector2multiply(localPlayer.velocity, deltaTime));
 
 		//#endregion
 
@@ -1559,11 +1234,13 @@ function update(timestamp) {
 
 		//#region WORLD SPACE BG FX
 		updateWorldspaceBg();
+		ctx.fillStyle = "red";
+		ctx.fillRect(10, 10, 10, 10);
 		//#endregion
 
 
 		//#region ENEMY SPAWNING
-
+		/*
 		if (enemyCount < maxEnemyCount) {
 			enemySpawnTimer += deltaTime;
 			if (enemySpawnTimer > 5) {
@@ -1576,7 +1253,7 @@ function update(timestamp) {
 
 		enemyCooldown -= deltaTime;
 
-
+		*/
 		//#endregion
 
 
@@ -1706,7 +1383,7 @@ function update(timestamp) {
 //#region UPDATE FUNCTIONS
 
 function updateStars() {
-	
+
 
 	ctx.lineCap = "round";
 	tempStarsAmount.innerHTML = stars.length * sliderStars.value * starsRatio;
@@ -2209,10 +1886,10 @@ function updateSparks() {
 		p.oldY = p.y;
 		p.x += p.velocity.x * deltaTime;
 		p.y += p.velocity.y * deltaTime;
-		p.velocity.x = p.originalVelocity.x * (1-lifetimeRatio);
-		p.velocity.y = p.originalVelocity.y * (1-lifetimeRatio);
+		p.velocity.x = p.originalVelocity.x * (1 - lifetimeRatio);
+		p.velocity.y = p.originalVelocity.y * (1 - lifetimeRatio);
 
-		
+
 		//KILL IF TOO OLD
 		if (p.age > p.lifetime) {
 			/*ctx.fillStyle="white";
@@ -2223,7 +1900,7 @@ function updateSparks() {
 			continue;
 		}
 
-		
+
 
 		tempOpacity = 1 * (1 - Math.abs(2 * (lifetimeRatio - 0.5)));
 
@@ -2231,7 +1908,7 @@ function updateSparks() {
 		ctx.save();
 		ctx.globalAlpha = 1 - lifetimeRatio;
 		ctx.strokeStyle = CSScolor(p.color);
-		ctx.lineWidth = 5*(1-lifetimeRatio);
+		ctx.lineWidth = 5 * (1 - lifetimeRatio);
 		ctx.lineCap = "round";
 		ctx.beginPath();
 		ctx.moveTo(p.oldX, p.oldY);
@@ -2278,7 +1955,7 @@ function updateShooting() {
 				localPlayer.pos.x += lagNegation * localPlayer.velocity.x * deltaTime;
 				localPlayer.pos.y += lagNegation * localPlayer.velocity.y * deltaTime;
 
-				shootProjectile(localPlayer);
+				//shootProjectile(localPlayer);
 
 				//SHOOTING LAG MITIGATION
 
@@ -2423,15 +2100,15 @@ function updateScreenspaceBg() {
 
 	lastPos.x = cameraPos.x - canvas.width / 2 / zoom;
 	lastPos.y = cameraPos.y - canvas.height / 2 / zoom;
-	
+
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
-	
+
 	ctx.fillStyle = CSScolor({ r: 19, g: 22, b: 25 });
 	ctx.fillRect(0, 0, canvas.width, canvas.height);
-	
+
 	ctx.fillStyle = "white";
 	ctx.textAlign = "left";
-	
+
 
 
 	/*REMOVE THIS*/tempFpsCounter.innerHTML = (fpsAverageLimit / avgDeltaTime).toFixed(0);
@@ -2439,7 +2116,7 @@ function updateScreenspaceBg() {
 	showFps = true;
 	if (showFps) {
 		ctx.fillText("DeltaTime: " + trueDeltaTime.toFixed(3), 30, 30);
-		ctx.fillText("True FPS: " +(1 / trueDeltaTime).toFixed(0), 30, 60);
+		ctx.fillText("True FPS: " + (1 / trueDeltaTime).toFixed(0), 30, 60);
 		ctx.fillText("Avg FPS: " + (fpsAverageLimit / avgDeltaTime).toFixed(0), 30, 90);
 	}
 
@@ -2911,10 +2588,16 @@ function predictTargetPos(shooter, target, projectileSpeed) {
 	return predictedTargetPos;
 }
 
-function gameStart() {
+function gameStart(data) {
 
 	console.log("Game start");
 
+	running = true;
+
+	localPlayer = new Player();
+	localPlayer.id = data.id;
+	localPlayer.initialised = true;
+	players.push(localPlayer);
 	loadingScreen.style.animation = "startGame 1s cubic-bezier(0.3, 0, 0.1, 1) 0s 2 normal both";
 	loadingScreen.style.animationPlayState = "running";
 	setTimeout(function () {
@@ -2994,6 +2677,18 @@ function testIfOnScreenScreenspace(object, margin) {
 
 
 
+function vector2add(a, b) {
+	return { x: a.x + b.x, y: a.y + b.y };
+}
+function vector2multiply(vector, number) {
+	return { x: vector.x * number, y: vector.y * number };
+}
+function vector2copy(vector) {
+	return { x: vector.x, y: vector.y };
+}
+function colorCopy(color) {
+	return { r: color.r, g: color.r, b: color.b };
+}
 
 function invertColor(color) {
 	var inverted = {
