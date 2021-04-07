@@ -470,12 +470,12 @@ var debrisIDs = 0;
 var sparkIDs = 0;
 
 
-var networker = new Worker("networker.js");
+//var networker = new Worker("networker.js");
 
-/*var pingSendInterval = 1;
+var pingSendInterval = 1;
 var lastPingSent = 0;
 var pingTimeout = 0;
-var maxPingTimeout = 15;*/
+var maxPingTimeout = 15;
 //#endregion
 
 //#region INIT FUNCTION CALLS
@@ -777,43 +777,49 @@ chatInput.addEventListener("blur", function (e) {
 //#region NETWORK FUNCTIONS
 
 function connect() {
-	networker.postMessage({type:"connect"});
+	//networker.postMessage({type:"connect"});
+	connection = new WebSocket('wss://stuffgame.ws.coal.games/');
+	//connection.binaryType = "arraybuffer";
+	connection.onopen = onConnectionOpen;
+	connection.onmessage = onConnectionMessage;
+	connection.onclose = onConnectionClose;
 	//connection = new WebSocket('wss://all-we-ever-want-is-indecision.herokuapp.com');
-	
+
 }
-networker.addEventListener("message", message => {
-	
+/* networker.addEventListener("message", message => {
+
 	if (message.data.type == "connectionClose") onConnectionClose();
 	if (message.data.type == "connectionOpen") onConnectionOpen();
 	if (message.data.type == "connectionMessage") {
-		console.log("K/OI!" , message.data);
+		console.log("K/OI!", message.data);
 		onConnectionMessage(message.data.m);
-	} 
-});
+	}
+}); */
 function onConnectionClose() {
-    //console.log("Connection closed, last ping sent " + lastPingSent + " s ago.");
-    connected = false;
-    running = false;
-    loadingScreen.style.display = "flex";
-    loadingScreen.style.animation = "startGame 1s cubic-bezier(0.9, 0, 0.7, 1) 0s 1 reverse both";
-    loadingScreen.style.animationPlayState = "running";
-    /*setTimeout(function () {
-        loadingScreen.style.animationPlayState = "paused";
-        removeAllPlayers();
-    }, 1000);*/
+	console.log("Connection closed, last ping sent " + lastPingSent + " s ago.");
+	connected = false;
+	running = false;
+	loadingScreen.style.display = "flex";
+	loadingScreen.style.animation = "startGame 1s cubic-bezier(0.9, 0, 0.7, 1) 0s 1 reverse both";
+	loadingScreen.style.animationPlayState = "running";
+	/*setTimeout(function () {
+		loadingScreen.style.animationPlayState = "paused";
+		removeAllPlayers();
+	}, 1000);*/
 }
 function onConnectionOpen() {
 	pingTimeout = 0;
 	console.log("Connection opened");
 	connected = true;
-	
+
 }
 
-function onConnectionMessage(messageRawData) {
-	console.log("message:" + messageRawData);
-	
+function onConnectionMessage(messageEvent) {
+	var messageRawData = messageEvent.data;
+	//console.log("message:" + messageRawData);
+
 	//#region OLD JSON
-	/*var message = JSON.parse(messageRawData);
+	var message = JSON.parse(messageRawData);
 	if (message.type == "technical") {
 		if (message.subtype == "init") {
 			if (!running) {
@@ -834,19 +840,19 @@ function onConnectionMessage(messageRawData) {
 
 				if (playerName) {
 					localPlayer.name = playerName;
-					//connection.send(JSON.stringify({ type: "technical", subtype: "initData", name: playerName, color: localPlayer.color }));
+					connection.send(JSON.stringify({ type: "technical", subtype: "initData", name: playerName, color: localPlayer.color }));
 				}
 				else if (cookie != "") {
 					var n = getCookie("playerName");
 					if (n != "") {
 						playerName = n;
 						localPlayer.name = playerName;
-						//connection.send(JSON.stringify({ type: "technical", subtype: "initData", name: playerName, color: localPlayer.color }));
+						connection.send(JSON.stringify({ type: "technical", subtype: "initData", name: playerName, color: localPlayer.color }));
 					}
 
 				}
 				else {
-					//connection.send(JSON.stringify({ type: "technical", subtype: "initData", name: localPlayer.name, color: localPlayer.color }));
+					connection.send(JSON.stringify({ type: "technical", subtype: "initData", name: localPlayer.name, color: localPlayer.color }));
 				}
 
 				if (cookie != "") {
@@ -1058,7 +1064,7 @@ function onConnectionMessage(messageRawData) {
 			console.log("receiving shoot from ID " + shooterID);
 			spawnProjectile(shootPos, shootRot, shootVelocity, shooterID, damage);
 		}
-	}*/
+	}
 	//#endregion
 
 
@@ -1072,7 +1078,7 @@ function sendPos() {
 	connection.send(JSON.stringify({ type: "coordinates", data: JSON.stringify({ pos: JSON.stringify(localPlayer.pos), rot: localPlayer.rot }) }));
 	//console.log(new TextEncoder().encode(JSON.stringify({ type: "coordinates", data: JSON.stringify({ pos: JSON.stringify(localPlayer.pos), rot: localPlayer.rot }) })).length);
 	var arrayBuffer = new ArrayBuffer(26);
-	var a = new Float64Array(arrayBuffer,0,3);
+	var a = new Float64Array(arrayBuffer, 0, 3);
 	a[0] = localPlayer.pos.x;
 	a[1] = localPlayer.pos.y;
 	a[2] = localPlayer.rot;
@@ -1104,7 +1110,7 @@ function sendPlayerData() {
 }
 
 function sendProjectile(pos, rot, velocity, shooter, dmg) {
-	//connection.send(JSON.stringify({ type: "shoot", data: JSON.stringify({ pos: JSON.stringify(pos), rot: rot, velocity: JSON.stringify(velocity), shooter: shooter, dmg: dmg }) }));
+	connection.send(JSON.stringify({ type: "shoot", data: JSON.stringify({ pos: JSON.stringify(pos), rot: rot, velocity: JSON.stringify(velocity), shooter: shooter, dmg: dmg }) }));
 	//console.log("sending shoot from ID " + shooter);
 }
 
@@ -1129,7 +1135,7 @@ function sendLevel() {
 function sendName() {
 	connection.send(JSON.stringify({ type: "name", data: JSON.stringify({ name: localPlayer.name }) }));
 }
-/*function sendPing(){
+function sendPing(){
 	pingTimeout+=trueDeltaTime;
 	lastPingSent+=trueDeltaTime;
 	//console.log("pingTimeout: " + pingTimeout);
@@ -1141,7 +1147,7 @@ function sendName() {
 
 		if(pingTimeout > maxPingTimeout){
 			console.log("Disconnecting after " + pingTimeout + " s of no response");
-			connection.close();
+			//connection.close();
 		}
 	}
 
@@ -1149,7 +1155,7 @@ function sendName() {
 		console.log("attempting new connection");
 		connect();
 	}
-}*/
+}
 function sendChat() {
 	var msg = chatInput.value;
 	if (msg.trim() != "") {
@@ -1480,7 +1486,7 @@ function update(timestamp) {
 	//console.log("frame");
 	if (running) {
 
-		
+
 		//#region INIT
 
 		//TODO: DELTATIME
@@ -1504,11 +1510,11 @@ function update(timestamp) {
 		}
 
 		if (connected) {
-			networker.postMessage({ type: "posData", input: {x:inputVelocity,y:inputRotation},targetRot:localPlayer.rot,shooting:shooting});
-			//sendPing();
-			//sendHP();
+			//networker.postMessage({ type: "posData", input: {x:inputVelocity,y:inputRotation},targetRot:localPlayer.rot,shooting:shooting});
+			sendPing();
+			sendHP();
 			if (localPlayer.hp > 0) {
-				//sendPos();
+				sendPos();
 			}
 		}
 
@@ -1706,7 +1712,7 @@ function update(timestamp) {
 //#region UPDATE FUNCTIONS
 
 function updateStars() {
-	
+
 
 	ctx.lineCap = "round";
 	tempStarsAmount.innerHTML = stars.length * sliderStars.value * starsRatio;
@@ -2209,10 +2215,10 @@ function updateSparks() {
 		p.oldY = p.y;
 		p.x += p.velocity.x * deltaTime;
 		p.y += p.velocity.y * deltaTime;
-		p.velocity.x = p.originalVelocity.x * (1-lifetimeRatio);
-		p.velocity.y = p.originalVelocity.y * (1-lifetimeRatio);
+		p.velocity.x = p.originalVelocity.x * (1 - lifetimeRatio);
+		p.velocity.y = p.originalVelocity.y * (1 - lifetimeRatio);
 
-		
+
 		//KILL IF TOO OLD
 		if (p.age > p.lifetime) {
 			/*ctx.fillStyle="white";
@@ -2223,7 +2229,7 @@ function updateSparks() {
 			continue;
 		}
 
-		
+
 
 		tempOpacity = 1 * (1 - Math.abs(2 * (lifetimeRatio - 0.5)));
 
@@ -2231,7 +2237,7 @@ function updateSparks() {
 		ctx.save();
 		ctx.globalAlpha = 1 - lifetimeRatio;
 		ctx.strokeStyle = CSScolor(p.color);
-		ctx.lineWidth = 5*(1-lifetimeRatio);
+		ctx.lineWidth = 5 * (1 - lifetimeRatio);
 		ctx.lineCap = "round";
 		ctx.beginPath();
 		ctx.moveTo(p.oldX, p.oldY);
@@ -2423,15 +2429,15 @@ function updateScreenspaceBg() {
 
 	lastPos.x = cameraPos.x - canvas.width / 2 / zoom;
 	lastPos.y = cameraPos.y - canvas.height / 2 / zoom;
-	
+
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
-	
+
 	ctx.fillStyle = CSScolor({ r: 19, g: 22, b: 25 });
 	ctx.fillRect(0, 0, canvas.width, canvas.height);
-	
+
 	ctx.fillStyle = "white";
 	ctx.textAlign = "left";
-	
+
 
 
 	/*REMOVE THIS*/tempFpsCounter.innerHTML = (fpsAverageLimit / avgDeltaTime).toFixed(0);
@@ -2439,7 +2445,7 @@ function updateScreenspaceBg() {
 	showFps = true;
 	if (showFps) {
 		ctx.fillText("DeltaTime: " + trueDeltaTime.toFixed(3), 30, 30);
-		ctx.fillText("True FPS: " +(1 / trueDeltaTime).toFixed(0), 30, 60);
+		ctx.fillText("True FPS: " + (1 / trueDeltaTime).toFixed(0), 30, 60);
 		ctx.fillText("Avg FPS: " + (fpsAverageLimit / avgDeltaTime).toFixed(0), 30, 90);
 	}
 
