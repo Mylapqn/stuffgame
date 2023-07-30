@@ -1,4 +1,4 @@
-var connection = new WebSocket('wss://all-we-ever-want-is-indecision.herokuapp.com');
+var connection = new WebSocket('wss://stuffgame.ws.coal.games/');
 var userID;
 
 connection.onopen = function () {
